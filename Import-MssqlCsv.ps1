@@ -1,4 +1,4 @@
-﻿# 移除 CSV 數據中的雙引號
+# 移除 CSV 數據中的雙引號
 function Remove-CsvQuotes {
     param (
         [Parameter(ValueFromPipeline = $true)]
