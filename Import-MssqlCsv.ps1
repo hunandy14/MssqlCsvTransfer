@@ -73,27 +73,37 @@ function Import-MssqlCsv {
         [string] $RowTerminator = "`n",
         [switch] $OutNull
     )
-
-    $Output = & bcp $Table in $CsvPath -c -t $Terminator -r $RowTerminator -S $ServerName -U $UserName -P $Passwd
-    $HasError = $false
-    $RowsCopied = 0
     
-    $OutputString = $Output -join "`r`n"
-    if ($outputString -match "(\d+) rows copied\.") {
-        $RowsCopied = [int]$matches[1]
-        if ($RowsCopied -eq 0) { $HasError = $true }
-    } else { $HasError = $true }
-    
-    if (-not $OutNull) {
-        if ($HasError) {
-            $ErrMsg = $Output -join ', '
-            Write-Error "BCP 命令執行失敗:: $ErrMsg"
-        } else { Write-Host "BCP 命令執行成功, 共複製了 $RowsCopied 行" }
+    begin {
+        $dataPath = "data\Data.data"
+        Remove-CsvQuotes -InputPath $CsvPath -OutputPath $dataPath -RemoveHeader
+        $CsvPath = $dataPath
     }
     
-    return [pscustomobject]@{
-        Success = !$HasError
-        RowsCopied = $RowsCopied
-        Message = $Output -match ".+" -notmatch "Starting copy..."
+    process {
+        $Output = & bcp $Table in $CsvPath -c -t $Terminator -r $RowTerminator -S $ServerName -U $UserName -P $Passwd
+        $HasError = $false
+        $RowsCopied = 0
+        
+        $OutputString = $Output -join "`r`n"
+        if ($outputString -match "(\d+) rows copied\.") {
+            $RowsCopied = [int]$matches[1]
+            if ($RowsCopied -eq 0) { $HasError = $true }
+        } else { $HasError = $true }
+        
+        if (-not $OutNull) {
+            if ($HasError) {
+                $ErrMsg = $Output -join ', '
+                Write-Error "BCP 命令執行失敗:: $ErrMsg"
+            } else { Write-Host "BCP 命令執行成功, 共複製了 $RowsCopied 行" }
+        }
     }
-} # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "data\Data.data" | Out-Null
+    
+    end {
+        return [pscustomobject]@{
+            Success = !$HasError
+            RowsCopied = $RowsCopied
+            Message = $Output -match ".+" -notmatch "Starting copy..."
+        }
+    }
+} # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "csv\Data.csv" | Out-Null
