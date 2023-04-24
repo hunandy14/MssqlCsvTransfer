@@ -57,6 +57,7 @@ function Remove-CsvQuotes {
 # Import-Csv 'csv\Data.csv'|Remove-CsvQuotes -OutputPath 'data\Data.data' -RemoveHeader
 
 
+
 # 上傳 CSV 到 MSSQL資料庫
 function Import-MssqlCsv {
     [CmdletBinding()]
@@ -87,7 +88,7 @@ function Import-MssqlCsv {
     }
     
     process {
-        $Output = & bcp $Table in $CsvPath -c -t $Terminator -r $RowTerminator -S $ServerName -U $UserName -P $Passwd
+        $Output = & bcp $Table in $CsvPath -C ($Encoding).CodePage -c -t $Terminator -r $RowTerminator -S $ServerName -U $UserName -P $Passwd
         $HasError = $false
         $RowsCopied = 0
         
