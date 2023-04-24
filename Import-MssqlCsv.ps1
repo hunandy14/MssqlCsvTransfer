@@ -78,7 +78,8 @@ function Import-MssqlCsv {
     )
     
     begin {
-        $dataPath = "data\Data.data"
+        $tmp = New-TemporaryFile
+        $dataPath = $tmp.FullName
         Remove-CsvQuotes -InputPath $CsvPath -OutputPath $dataPath -RemoveHeader:(!$NonHeaderFile) -Encoding:$Encoding
         $CsvPath = $dataPath
         [string] $Terminator = ','
@@ -105,6 +106,12 @@ function Import-MssqlCsv {
     }
     
     end {
+        # 刪除暫存檔案
+        if ($tmp) {
+            $tmpPath = $tmp.FullName -replace '.tmp$'
+            Remove-Item "$tmpPath.tmp"
+        }
+        # 回傳物件
         return [pscustomobject]@{
             Success = !$HasError
             RowsCopied = $RowsCopied
