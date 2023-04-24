@@ -48,7 +48,7 @@ function Split-SqlTableName {
         TableName = $tableName
         FullTableName = $fullTableName
     }
-}
+} # "[CHG].[CHG].[TEST]" | Split-SqlTableName
 
 
 
@@ -59,14 +59,20 @@ function Export-MssqlCsv {
         [string] $UserName,
         [string] $Passwd,
         [string] $Table,
-        [string] $OutputCSVPath,
-        [System.Text.Encoding] $Encoding = (New-Object System.Text.UTF8Encoding $False)
+        [string] $Path,
+        [System.Text.Encoding] $Encoding = (New-Object System.Text.UTF8Encoding $False),
+        [switch] $OutNull
     )
+    # 切換C#路徑
+    [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
+    $Path = [IO.Path]::GetFullPath($Path)
+    
     # 獲取 [資料庫名, 模式名, 表名]
     $tableInfo = Split-SqlTableName $Table
     $DatabaseName = $tableInfo.DatabaseName
     $SchemaName = $tableInfo.SchemaName
     $TableName = $tableInfo.TableName
+    $FullTableName = $tableInfo.FullTableName
 
     # 建立連接到資料庫的 SqlConnection 物件
     $connectionString = "Server=$ServerName;Database=$DatabaseName;User Id=$UserName;Password=$Passwd;"
@@ -91,16 +97,31 @@ function Export-MssqlCsv {
     $query += "SELECT`r`n    $($quotedColumns -join ",`r`n    ")`r`nFROM $Table;"
 
     # 輸出 QueryString 檔案
-    $sqlFile = "sql\tmp.sql"
+    $tmp = New-TemporaryFile
+    $sqlFile = $tmp.FullName
     $query | Set-Content -Encoding utf8 $sqlFile
-
-    # 下載
-    sqlcmd -S $ServerName -U $UserName -P $Passwd -i $sqlFile -o $OutputCSVPath -b -s ',' -W -h -1 -f ($Encoding.CodePage)
     
-    if ($LASTEXITCODE -ne 0) {
-        $Content = (Get-Content -Path $OutputCSVPath) -join ", "
-        Write-Error $Content
-    } else {
-        Write-Host "成功: SQL 執行成功完成, 已下載完指定表格"
+    # 下載
+    sqlcmd -S $ServerName -U $UserName -P $Passwd -i $sqlFile -o $Path -b -s ',' -W -h -1 -f ($Encoding.CodePage)
+    
+    # 刪除暫存SQL檔案
+    if ($tmp) {
+        $tmpPath = $tmp.FullName -replace '.tmp$'
+        Remove-Item "$tmpPath.tmp"
     }
-} # Export-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "CHG.CHG.Employees" -OutputCSVPath "csv\Employees.csv"
+    
+    # 執行完畢信息處理
+    if ($LASTEXITCODE -ne 0) {
+        $Content = (Get-Content -Path $Path) -join ", "
+        if (!$OutNull) {
+            Write-Error $Content
+        }
+        return $null
+    } else {
+        if (!$OutNull) {
+            Write-Host "成功: SQL 執行成功完成, $FullTableName 已經下載到"
+            Write-Host "  $Path"
+        }
+        return $Path
+    }
+} # Export-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "CHG.CHG.Employees" -Path "csv\Employees.csv" | Out-Null
