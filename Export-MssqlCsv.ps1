@@ -75,7 +75,7 @@ function Export-MssqlCsv {
     $SchemaName = $tableInfo.SchemaName
     $TableName = $tableInfo.TableName
     $FullTableName = $tableInfo.FullTableName
-    
+
     # 路徑處理
     [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
     if (!$Path) {
@@ -106,21 +106,21 @@ function Export-MssqlCsv {
     $query += "SELECT`r`n    $($quotedColumns -join ",`r`n    ")`r`nFROM $Table;"
 
     # 輸出 QueryString 檔案
-    # $tmp = New-TemporaryFile
-    # $sqlFile = $tmp.FullName
-    $sqlFile = $env:TEMP + "\Export-MssqlCsv\Download.sql"
+    $tmp = New-TemporaryFile
+    $sqlFile = $tmp.FullName
+    # $sqlFile = $env:TEMP + "\Export-MssqlCsv\Download.sql"
     if (!(Test-Path $sqlFile)) { New-Item $sqlFile -ItemType:File -Force | Out-Null }
     $query | Set-Content -Encoding utf8 $sqlFile
-    
+
     # 下載
     sqlcmd -S $ServerName -U $UserName -P $Passwd -i $sqlFile -o $Path -b -s ',' -W -h -1 -f ($Encoding.CodePage)
-    
+
     # 刪除暫存SQL檔案
     if ($tmp) {
         $tmpPath = $tmp.FullName -replace '.tmp$'
         Remove-Item "$tmpPath.tmp"
     }
-    
+
     # 執行完畢信息處理
     if ($LASTEXITCODE -ne 0) {
         $Content = (Get-Content -Path $Path) -join ", "
