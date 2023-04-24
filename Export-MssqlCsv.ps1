@@ -55,24 +55,33 @@ function Split-SqlTableName {
 # 下載MSSQL表的CSV檔案
 function Export-MssqlCsv {
     param (
+        [Parameter(Position = 0, ParameterSetName = "", Mandatory)]
         [string] $ServerName,
+        [Parameter(Position = 1, ParameterSetName = "", Mandatory)]
         [string] $UserName,
+        [Parameter(Position = 2, ParameterSetName = "", Mandatory)]
         [string] $Passwd,
+        [Parameter(Position = 3, ParameterSetName = "", Mandatory)]
         [string] $Table,
+        [Parameter(Position = 4, ParameterSetName = "")]
         [string] $Path,
         [System.Text.Encoding] $Encoding = (New-Object System.Text.UTF8Encoding $False),
-        [switch] $OutNull
+        [switch] $OutNull,
+        [switch] $OpenOutDir
     )
-    # 切換C#路徑
-    [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
-    $Path = [IO.Path]::GetFullPath($Path)
-    
     # 獲取 [資料庫名, 模式名, 表名]
     $tableInfo = Split-SqlTableName $Table
     $DatabaseName = $tableInfo.DatabaseName
     $SchemaName = $tableInfo.SchemaName
     $TableName = $tableInfo.TableName
     $FullTableName = $tableInfo.FullTableName
+    
+    # 路徑處理
+    [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
+    if (!$Path) {
+        $Path = $env:TEMP + "\Export-MssqlCsv\$TableName.csv"
+        if (!(Test-Path $Path)) { New-Item $Path -ItemType:File -Force | Out-Null }
+    } else { $Path = [IO.Path]::GetFullPath($Path) }
 
     # 建立連接到資料庫的 SqlConnection 物件
     $connectionString = "Server=$ServerName;Database=$DatabaseName;User Id=$UserName;Password=$Passwd;"
@@ -119,9 +128,12 @@ function Export-MssqlCsv {
         return $null
     } else {
         if (!$OutNull) {
-            Write-Host "成功: SQL 執行成功完成, $FullTableName 已經下載到"
-            Write-Host "  $Path"
+            Write-Host "成功: SQL 執行成功完成, $FullTableName 已下載到"
+            Write-Host "  $Path" -ForegroundColor Yellow
+        }
+        if ($OpenOutDir) {
+            explorer.exe (Split-Path $Path -Parent)
         }
         return $Path
     }
-} # Export-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "CHG.CHG.Employees" -Path "csv\Employees.csv" | Out-Null
+} # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" | Out-Null
