@@ -100,14 +100,16 @@ function Export-MssqlCsv {
 
     # 創建一個將所有列名包裹在雙引號中的 SQL 查詢
     $quotedFields = "SELECT "+"'`"" +($Columns -join "`"','`"")+ "`"'"
-    $quotedColumns = $columns -replace ('^(.+)$', '''"'' + REPLACE(CONVERT(NVARCHAR(MAX), $1), ''"'', ''""'') + ''"'' AS $1')
+    $quotedColumns = $columns -replace ('^(.+)$', '''"'' + REPLACE($1, ''"'', ''""'') + ''"'' AS $1')
     $query  = "SET NOCOUNT ON`r`n"
     $query += "$quotedFields`r`n"
     $query += "SELECT`r`n    $($quotedColumns -join ",`r`n    ")`r`nFROM $Table;"
 
     # 輸出 QueryString 檔案
-    $tmp = New-TemporaryFile
-    $sqlFile = $tmp.FullName
+    # $tmp = New-TemporaryFile
+    # $sqlFile = $tmp.FullName
+    $sqlFile = $env:TEMP + "\Export-MssqlCsv\Download.sql"
+    if (!(Test-Path $sqlFile)) { New-Item $sqlFile -ItemType:File -Force | Out-Null }
     $query | Set-Content -Encoding utf8 $sqlFile
     
     # 下載
