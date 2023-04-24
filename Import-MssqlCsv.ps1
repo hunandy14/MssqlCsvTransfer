@@ -82,7 +82,7 @@ function Import-MssqlCsv {
         Remove-CsvQuotes -InputPath $CsvPath -OutputPath $dataPath -RemoveHeader:(!$NonHeaderFile) -Encoding:$Encoding
         $CsvPath = $dataPath
         [string] $Terminator = ','
-        [string] $RowTerminator = "`n"
+        [string] $RowTerminator = "`r`n"
     }
     
     process {
