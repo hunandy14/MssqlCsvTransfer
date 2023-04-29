@@ -109,6 +109,12 @@ function Export-MssqlCsv {
         try {
             $sqlConnection.Open()
         } catch { Write-Error "Unable to open SQL connection: $_" -EA:Stop }
+        
+        # 檢查表格或檢視是否存在
+        $cmdText = "IF OBJECT_ID('$FullTableName', 'U') IS NOT NULL SELECT 1 ELSE SELECT 0"
+        $sqlCommand = New-Object -TypeName System.Data.SqlClient.SqlCommand -ArgumentList $cmdText, $sqlConnection
+        $tableExists = [int]$sqlCommand.ExecuteScalar()
+        if ($tableExists -eq 0) { Write-Error "Table/view '$FullTableName' does not exist." -EA:Stop }
     
         # 獲取表格的所有列名
         $getColumnsCommand = $sqlConnection.CreateCommand()
