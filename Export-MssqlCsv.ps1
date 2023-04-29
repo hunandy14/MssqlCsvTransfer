@@ -54,6 +54,7 @@ function Split-SqlTableName {
 
 # 下載MSSQL表的CSV檔案
 function Export-MssqlCsv {
+    [CmdletBinding(DefaultParameterSetName = "Table")]
     param (
         [Parameter(Position = 0, ParameterSetName = "", Mandatory)]
         [string] $ServerName,
@@ -63,7 +64,7 @@ function Export-MssqlCsv {
         [string] $Passwd,
         [Parameter(Position = 3, ParameterSetName = "Table", Mandatory)]
         [string] $Table,
-        [Parameter(ParameterSetName = "Table", Mandatory)]
+        [Parameter(ParameterSetName = "Table")]
         [string] $HeaderString,
         [Parameter(Position = 3, ParameterSetName = "SQL", Mandatory)]
         [string] $SQLPath,
@@ -94,7 +95,7 @@ function Export-MssqlCsv {
         if ($OutToTemp) { # 輸出到臨時檔案
             $Path = $env:TEMP + "\Export-MssqlCsv\$TableName.csv"
         } else { # 輸出到當前資料夾
-            $Path = "$TableName.csv"
+            $Path = [IO.Path]::GetFullPath("$TableName.csv")
         }
     } else { $Path = [IO.Path]::GetFullPath($Path) }
     
