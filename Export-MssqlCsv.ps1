@@ -111,7 +111,8 @@ function Export-MssqlCsv {
         } catch { Write-Error "Unable to open SQL connection: $_" -EA:Stop }
         
         # 檢查表格或檢視是否存在
-        $cmdText = "IF OBJECT_ID('$FullTableName', 'U') IS NOT NULL SELECT 1 ELSE SELECT 0"
+        
+        $cmdText = "SELECT COUNT(*) FROM sys.objects WHERE object_id = OBJECT_ID(N'$FullTableName') AND type IN (N'U', N'V')"
         $sqlCommand = New-Object -TypeName System.Data.SqlClient.SqlCommand -ArgumentList $cmdText, $sqlConnection
         $tableExists = [int]$sqlCommand.ExecuteScalar()
         if ($tableExists -eq 0) { Write-Error "Table/view '$FullTableName' does not exist." -EA:Stop }
