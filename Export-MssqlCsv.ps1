@@ -67,6 +67,7 @@ function Export-MssqlCsv {
         [string] $Path,
         [System.Text.Encoding] $Encoding = (New-Object System.Text.UTF8Encoding $False),
         [switch] $OutNull,
+        [switch] $OutToTemp,
         [switch] $OpenOutDir
     )
     # 獲取 [資料庫名, 模式名, 表名]
@@ -79,9 +80,16 @@ function Export-MssqlCsv {
     # 路徑處理
     [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
     if (!$Path) {
-        $Path = $env:TEMP + "\Export-MssqlCsv\$TableName.csv"
-        if (!(Test-Path $Path)) { New-Item $Path -ItemType:File -Force | Out-Null }
+        if ($OutToTemp) { # 輸出到臨時檔案
+            $Path = $env:TEMP + "\Export-MssqlCsv\$TableName.csv"
+        } else { # 輸出到當前資料夾
+            $Path = "$TableName.csv"
+        }
     } else { $Path = [IO.Path]::GetFullPath($Path) }
+    
+    # 創建空檔案
+    if (!(Test-Path $Path)) { New-Item $Path -ItemType:File -Force -EA:Stop | Out-Null }
+    if (!(Test-Path $Path)) { Write-Error "檔案創建失敗, 路徑 `"$Path`" 可能有誤或沒有存取權限" -EA:Stop }
 
     # 建立連接到資料庫的 SqlConnection 物件
     $connectionString = "Server=$ServerName;Database=$DatabaseName;User Id=$UserName;Password=$Passwd;"
