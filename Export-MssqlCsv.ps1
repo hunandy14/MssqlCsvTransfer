@@ -111,7 +111,6 @@ function Export-MssqlCsv {
         } catch { Write-Error "Unable to open SQL connection: $_" -EA:Stop }
         
         # 檢查表格或檢視是否存在
-        
         $cmdText = "SELECT COUNT(*) FROM sys.objects WHERE object_id = OBJECT_ID(N'$FullTableName') AND type IN (N'U', N'V')"
         $sqlCommand = New-Object -TypeName System.Data.SqlClient.SqlCommand -ArgumentList $cmdText, $sqlConnection
         $tableExists = [int]$sqlCommand.ExecuteScalar()
@@ -131,7 +130,7 @@ function Export-MssqlCsv {
         if (!$HeaderString) {
             $quotedFields = "SELECT "+"'`"" +($Columns -join "`"','`"")+ "`"'"
         } else { $quotedFields = "SELECT '$HeaderString'" }
-        $quotedColumns = $columns -replace ('^(.+)$', '''"'' + REPLACE($1, ''"'', ''""'') + ''"'' AS $1')
+        $quotedColumns = $columns -replace ('^(.+)$', '''"'' + REPLACE(ISNULL($1,''''), ''"'', ''""'') + ''"'' AS $1')
         $query  = "SET NOCOUNT ON`r`n"
         $query += "$quotedFields`r`n"
         $query += "SELECT`r`n    $($quotedColumns -join ",`r`n    ")`r`nFROM $Table;"
@@ -171,5 +170,5 @@ function Export-MssqlCsv {
         return $Path
     }
 } # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees"
-# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"' -OutToTemp
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"'
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230"  -SQLPath "sql\V03.sql"
