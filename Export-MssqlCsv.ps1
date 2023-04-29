@@ -158,7 +158,7 @@ function Export-MssqlCsv {
         return $null
     } else {
         if (!$OutNull) {
-            Write-Host "Success: SQL execution completed successfully, `"$FullTableName`" has been downloaded to"
+            Write-Host "Success:: SQL execution completed, `"$FullTableName`" has been downloaded to"
             Write-Host "  $Path" -ForegroundColor Yellow
         }
         if ($OpenOutDir) {

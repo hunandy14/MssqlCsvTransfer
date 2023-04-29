@@ -101,8 +101,10 @@ function Import-MssqlCsv {
         if (-not $OutNull) {
             if ($HasError) {
                 $ErrMsg = $Output -join ', '
-                Write-Error "BCP 命令執行失敗:: $ErrMsg"
-            } else { Write-Host "BCP 命令執行成功, 共複製了 $RowsCopied 行" }
+                Write-Error "Error:: BCP command execution failed. Details: $ErrMsg"
+            } else {
+                Write-Host "Success:: BCP command executed. $RowsCopied rows copied."
+            }
         }
     }
     
