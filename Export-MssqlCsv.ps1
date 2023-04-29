@@ -63,9 +63,11 @@ function Export-MssqlCsv {
         [string] $Passwd,
         [Parameter(Position = 3, ParameterSetName = "", Mandatory)]
         [string] $Table,
-        [Parameter(Position = 4, ParameterSetName = "")]
+        [Parameter(ParameterSetName = "")]
         [string] $Path,
-        [System.Text.Encoding] $Encoding = (New-Object System.Text.UTF8Encoding $False),
+        [string] $HeaderString,
+        [Text.Encoding] $Encoding = (New-Object System.Text.UTF8Encoding $False),
+        [Parameter(ParameterSetName = "")]
         [switch] $OutNull,
         [switch] $OutToTemp,
         [switch] $OpenOutDir
@@ -107,7 +109,9 @@ function Export-MssqlCsv {
     $sqlConnection.Close()
 
     # 創建一個將所有列名包裹在雙引號中的 SQL 查詢
-    $quotedFields = "SELECT "+"'`"" +($Columns -join "`"','`"")+ "`"'"
+    if (!$HeaderString) {
+        $quotedFields = "SELECT "+"'`"" +($Columns -join "`"','`"")+ "`"'"
+    } else { $quotedFields = "SELECT '$HeaderString'" }
     $quotedColumns = $columns -replace ('^(.+)$', '''"'' + REPLACE($1, ''"'', ''""'') + ''"'' AS $1')
     $query  = "SET NOCOUNT ON`r`n"
     $query += "$quotedFields`r`n"
@@ -147,3 +151,4 @@ function Export-MssqlCsv {
         return $Path
     }
 } # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" | Out-Null
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"' -OutToTemp -OpenOutDir | Out-Null
