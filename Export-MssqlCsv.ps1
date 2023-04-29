@@ -130,12 +130,9 @@ function Export-MssqlCsv {
         $query += "SELECT`r`n    $($quotedColumns -join ",`r`n    ")`r`nFROM $Table;"
     
         # 輸出 QueryString 檔案
-        # $tmp = New-TemporaryFile
-        # $sqlFile = $tmp.FullName
-        # $sqlFile = $env:TEMP + "\Export-MssqlCsv\Download.sql"
-        $sqlFile = $env:TEMP + "Download.sql"
+        $tmp = New-TemporaryFile
+        $sqlFile = $tmp.FullName
         if (!(Test-Path $sqlFile)) { New-Item $sqlFile -ItemType:File -Force | Out-Null }
-        $sqlFile
         $query | Set-Content -Encoding utf8 $sqlFile
     } else {
         $sqlFile = $SQLPath
@@ -159,14 +156,13 @@ function Export-MssqlCsv {
         return $null
     } else {
         if (!$OutNull) {
-            Write-Host "Success:: SQL execution completed, `"$FullTableName`" has been downloaded to"
-            Write-Host "  $Path" -ForegroundColor Yellow
+            Write-Host "Success:: SQL execution completed, `"$FullTableName`" has been downloaded."
         }
         if ($OpenOutDir) {
             explorer.exe (Split-Path $Path -Parent)
         }
         return $Path
     }
-} # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" | Out-Null
-# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"' -OutToTemp | Out-Null
-# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230"  -SQLPath "sql\V03.sql" | Out-Null
+} # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees"
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"' -OutToTemp
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230"  -SQLPath "sql\V03.sql"
