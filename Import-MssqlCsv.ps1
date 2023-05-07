@@ -66,14 +66,13 @@ function Import-MssqlCsv {
         [string] $CsvPath,
         [Parameter(ParameterSetName = "")]
         [text.encoding] $Encoding = (New-Object System.Text.UTF8Encoding $False),
-        [switch] $NonHeaderFile,
-        [switch] $OutNull
+        [switch] $NonHeaderFile
     )
     
     begin {
         $tmp = New-TemporaryFile
         $dataPath = $tmp.FullName
-        Remove-CsvQuotes -InputPath $CsvPath -OutputPath $dataPath -RemoveHeader:(!$NonHeaderFile) -Encoding:$Encoding
+        Remove-CsvQuotes -InputPath $CsvPath -OutputPath $dataPath -RemoveHeader:(!$NonHeaderFile) -Encoding:$Encoding | Out-Null
         $CsvPath = $dataPath
         [string] $Terminator = ','
         [string] $RowTerminator = "`r`n"
@@ -83,21 +82,11 @@ function Import-MssqlCsv {
         $Output = & bcp $Table in $CsvPath -C ($Encoding).CodePage -c -t $Terminator -r $RowTerminator -S $ServerName -U $UserName -P $Passwd
         $HasError = $false
         $RowsCopied = 0
-        
         $OutputString = $Output -join "`r`n"
         if ($outputString -match "(\d+) rows copied\.") {
             $RowsCopied = [int]$matches[1]
             if ($RowsCopied -eq 0) { $HasError = $true }
         } else { $HasError = $true }
-        
-        if (!$OutNull) {
-            if ($HasError) {
-                $ErrMsg = $Output -join ', '
-                Write-Error "Error:: BCP command execution failed. Details: $ErrMsg"
-            } else {
-                Write-Host "Success:: BCP command executed. $RowsCopied rows copied."
-            }
-        }
     }
     
     end {
@@ -108,10 +97,10 @@ function Import-MssqlCsv {
         }
         # 回傳物件
         return [pscustomobject]@{
-            Success = !$HasError
-            RowsCopied = $RowsCopied
-            Message = $Output -match ".+" -notmatch "Starting copy..."
+            IsSuccessful = !$HasError
+            RowsCopied   = $RowsCopied
+            Message      = $Output -match ".+" -notmatch "Starting copy..."
         }
     }
 } # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "csv\Data.csv"
-# Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "data\Data.data" -NonHeaderFile | Out-Null
+# Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "data\Data.data" -NonHeaderFile
