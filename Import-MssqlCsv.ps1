@@ -64,22 +64,21 @@ function Remove-CsvQuotes {
 function Import-MssqlCsv {
     [CmdletBinding()]
     param(
-        [Parameter(ParameterSetName = "", Mandatory)]
+        [Parameter(Position = 0, ParameterSetName = "", Mandatory)]
         [string] $ServerName,
-        [Parameter(ParameterSetName = "", Mandatory)]
+        [Parameter(Position = 1, ParameterSetName = "", Mandatory)]
         [string] $UserName,
-        [Parameter(ParameterSetName = "", Mandatory)]
+        [Parameter(Position = 2, ParameterSetName = "", Mandatory)]
         [string] $Passwd,
-        [Parameter(ParameterSetName = "", Mandatory)]
+        [Parameter(Position = 3, ParameterSetName = "", Mandatory)]
         [string] $Table,
-        [Parameter(ParameterSetName = "", Mandatory)]
-        [string] $CsvPath,
+        [Parameter(Position = 4, ParameterSetName = "", Mandatory)]
+        [string] $Path,
+        [switch] $NoHeaders,
         [Parameter(ParameterSetName = "")]
         [Text.Encoding] $Encoding,
         [switch] $UTF8,
-        [switch] $UTF8BOM,
-        [Parameter(ParameterSetName = "")]
-        [switch] $NonHeaderFile
+        [switch] $UTF8BOM
     )
     
     begin {
@@ -99,18 +98,18 @@ function Import-MssqlCsv {
             }
         }
         # 確認輸入檔案存在
-        if (!(Test-Path -PathType:Leaf $CsvPath)) { Write-Error "The [`$CsvPath:: `"$CsvPath`"] does not exist." -EA:Stop }
+        if (!(Test-Path -PathType:Leaf $Path)) { Write-Error "The [`$Path:: `"$Path`"] does not exist." -EA:Stop }
         [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
-        $CsvPath = [IO.Path]::GetFullPath($CsvPath)
+        $Path = [IO.Path]::GetFullPath($Path)
         # 消除檔頭與雙引號
-        $CsvPath = $tmp = Remove-CsvQuotes $CsvPath -RemoveHeader:(!$NonHeaderFile) -Encoding:$Encoding
+        $Path = $tmp = Remove-CsvQuotes $Path -RemoveHeader:(!$NoHeaders) -Encoding:$Encoding
     }
     
     process {
-        $Output = & bcp $Table in $CsvPath -C ($Encoding).CodePage -c -t $Terminator -r $RowTerminator -S $ServerName -U $UserName -P $Passwd
+        $Result = & bcp $Table in $Path -C ($Encoding).CodePage -c -t $Terminator -r $RowTerminator -S $ServerName -U $UserName -P $Passwd
         $HasError = $false
         $RowsCopied = 0
-        if (($Output -join "`r`n") -match "(\d+) rows copied\.") {
+        if (($Result -join "`r`n") -match "(\d+) rows copied\.") {
             $RowsCopied = [int]$matches[1]
             if ($RowsCopied -eq 0) { $HasError = $true }
         } else { $HasError = $true }
@@ -125,8 +124,9 @@ function Import-MssqlCsv {
         return @{
             IsSuccessful = !$HasError
             RowsCopied   = $RowsCopied
-            Message      = $Output -match ".+" -notmatch "Starting copy..."
+            Message      = $Result -match ".+" -notmatch "Starting copy..."
         }
     }
-} # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "csv\Data.csv" -UTF8
-# Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "data\Data.data" -NonHeaderFile -UTF8
+} # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8
+# Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -Path "data\Data.data" -NoHeaders -UTF8
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" "csv\Data.csv" -UTF8
