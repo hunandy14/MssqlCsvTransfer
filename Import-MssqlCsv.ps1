@@ -70,20 +70,22 @@ function Import-MssqlCsv {
     )
     
     begin {
-        $tmp = New-TemporaryFile
-        $dataPath = $tmp.FullName
-        Remove-CsvQuotes -InputPath $CsvPath -OutputPath $dataPath -RemoveHeader:(!$NonHeaderFile) -Encoding:$Encoding | Out-Null
-        $CsvPath = $dataPath
+        # 設定值
         [string] $Terminator = ','
         [string] $RowTerminator = "`r`n"
+        # 確認輸入檔案存在
+        if (!(Test-Path -PathType:Leaf $CsvPath)) { Write-Error "The [`$CsvPath:: `"$CsvPath`"] does not exist." -EA:Stop }
+        [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
+        $CsvPath = [IO.Path]::GetFullPath($CsvPath)
+        # 消除檔頭與雙引號
+        $CsvPath = $tmp = Remove-CsvQuotes -InputPath $CsvPath -RemoveHeader:(!$NonHeaderFile) -Encoding:$Encoding
     }
     
     process {
         $Output = & bcp $Table in $CsvPath -C ($Encoding).CodePage -c -t $Terminator -r $RowTerminator -S $ServerName -U $UserName -P $Passwd
         $HasError = $false
         $RowsCopied = 0
-        $OutputString = $Output -join "`r`n"
-        if ($outputString -match "(\d+) rows copied\.") {
+        if (($Output -join "`r`n") -match "(\d+) rows copied\.") {
             $RowsCopied = [int]$matches[1]
             if ($RowsCopied -eq 0) { $HasError = $true }
         } else { $HasError = $true }
@@ -92,8 +94,7 @@ function Import-MssqlCsv {
     end {
         # 刪除暫存檔案
         if ($tmp) {
-            $tmpPath = $tmp.FullName -replace '.tmp$'
-            Remove-Item "$tmpPath.tmp"
+            Remove-Item "$($tmp -replace '.tmp$').tmp"
         }
         # 回傳物件
         return @{
@@ -102,5 +103,5 @@ function Import-MssqlCsv {
             Message      = $Output -match ".+" -notmatch "Starting copy..."
         }
     }
-} # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "csv\Data.csv"
+} #  Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "csv\Data.csv"
 # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "data\Data.data" -NonHeaderFile
