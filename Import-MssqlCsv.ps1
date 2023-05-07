@@ -2,31 +2,46 @@
 function Remove-CsvQuotes {
     param (
         [Parameter(Position = 0, ParameterSetName = "", Mandatory)]
-        [string] $InputPath,
+        [string] $Path,
         [Parameter(ParameterSetName = "")]
-        [string] $OutputPath,
+        [string] $Output,
         [Parameter(ParameterSetName = "")]
-        [text.encoding] $Encoding = (New-Object System.Text.UTF8Encoding $False),
+        [Text.Encoding] $Encoding,
+        [switch] $UTF8,
+        [switch] $UTF8BOM,
+        [Parameter(ParameterSetName = "")]
         [switch] $RemoveHeader
     )
-    [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
     
     # 設定分隔符號
     [string] $Delimiter = ','
+    
+    # 處理編碼
+    if (!$Encoding) {
+        # 預選項編碼
+        if ($UTF8) {
+            $Encoding = New-Object System.Text.UTF8Encoding $False
+        } elseif ($UTF8BOM) {
+            $Encoding = New-Object System.Text.UTF8Encoding $True
+        } else { # 系統語言
+            if (!$__SysEnc__) { $Script:__SysEnc__ = [Text.Encoding]::GetEncoding((powershell -nop "([Text.Encoding]::Default).WebName")) }
+            $Encoding = $__SysEnc__
+        }
+    }
 
     # 確認輸入檔案存在
-    if (!(Test-Path -PathType:Leaf $InputPath)) { Write-Error "The [`$InputPath:: `"$InputPath`"] does not exist."; return }
-    $InputPath = [IO.Path]::GetFullPath($InputPath)
+    if (!(Test-Path -PathType:Leaf $Path)) { Write-Error "The [`$Path:: `"$Path`"] does not exist."; return }
+    $Path = [IO.Path]::GetFullPath([IO.Path]::Combine((Get-Location -PSProvider FileSystem).ProviderPath, $Path))
     # 創建輸出檔案
-    if ($OutputPath) {
-        $OutputPath = [IO.Path]::GetFullPath($OutputPath)
-        if (!(Test-Path $OutputPath)) { New-Item $OutputPath -Force -EA:Stop | Out-Null }
-    } else { $OutputPath = New-TemporaryFile }
+    if ($Output) {
+        $Output = [IO.Path]::GetFullPath($Output)
+        if (!(Test-Path $Output)) { New-Item $Output -Force -EA:Stop | Out-Null }
+    } else { $Output = New-TemporaryFile }
     
     # 流處理檔案
     $headerProcessed = $false
-    $writer = New-Object System.IO.StreamWriter -ArgumentList $OutputPath, $false, $Encoding
-    $reader = New-Object System.IO.StreamReader -ArgumentList $InputPath, $Encoding
+    $writer = New-Object System.IO.StreamWriter -ArgumentList $Output, $false, $Encoding
+    $reader = New-Object System.IO.StreamReader -ArgumentList $Path, $Encoding
     if ($reader) {
         while (!$reader.EndOfStream) {
             $line = $reader.ReadLine()
@@ -39,9 +54,9 @@ function Remove-CsvQuotes {
         }; $reader.Close()
     }; $writer.Close()
     
-    return $OutputPath
-} # Remove-CsvQuotes -InputPath 'csv\Data.csv' -OutputPath 'data\Data.data' -RemoveHeader
-# $tmp = Remove-CsvQuotes -InputPath 'csv\Data.csv' -RemoveHeader; if ($tmp) { $tmp; Remove-Item "$($tmp -replace '.tmp$').tmp" }
+    return $Output
+} # Remove-CsvQuotes 'csv\Data.csv' -Output 'data\Data.data' -RemoveHeader
+# $tmp = Remove-CsvQuotes 'csv\Data.csv' -RemoveHeader; if ($tmp) { $tmp; Remove-Item "$($tmp -replace '.tmp$').tmp" }
 
 
 
@@ -88,7 +103,7 @@ function Import-MssqlCsv {
         [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
         $CsvPath = [IO.Path]::GetFullPath($CsvPath)
         # 消除檔頭與雙引號
-        $CsvPath = $tmp = Remove-CsvQuotes -InputPath $CsvPath -RemoveHeader:(!$NonHeaderFile) -Encoding:$Encoding
+        $CsvPath = $tmp = Remove-CsvQuotes $CsvPath -RemoveHeader:(!$NonHeaderFile) -Encoding:$Encoding
     }
     
     process {
