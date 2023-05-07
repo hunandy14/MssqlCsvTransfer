@@ -96,7 +96,7 @@ function Import-MssqlCsv {
             Remove-Item "$tmpPath.tmp"
         }
         # 回傳物件
-        return [pscustomobject]@{
+        return @{
             IsSuccessful = !$HasError
             RowsCopied   = $RowsCopied
             Message      = $Output -match ".+" -notmatch "Starting copy..."
