@@ -70,12 +70,16 @@ function Export-MssqlCsv {
         [string] $SQLPath,
         [Parameter(ParameterSetName = "")]
         [string] $Path,
-        [Text.Encoding] $Encoding = (New-Object System.Text.UTF8Encoding $False),
+        [Parameter(ParameterSetName = "")]
+        [Text.Encoding] $Encoding,
+        [switch] $UTF8,
+        [switch] $UTF8BOM,
         [Parameter(ParameterSetName = "")]
         [switch] $OutNull,
         [switch] $OutToTemp,
         [switch] $OpenOutDir
     )
+    
     # 獲取 [資料庫名, 模式名, 表名]
     if ($Table) {
         $tableInfo = Split-SqlTableName $Table
@@ -87,6 +91,19 @@ function Export-MssqlCsv {
         $FileName = $SQLPath -replace '^(.*[\\/])([^\\/]+?)(\.[^\\/.]+)?$','$2'
         $TableName = $FileName
         $FullTableName = $FileName
+    }
+    
+    # 處理編碼
+    if (!$Encoding) {
+        # 預選項編碼
+        if ($UTF8) {
+            $Encoding = New-Object System.Text.UTF8Encoding $False
+        } elseif ($UTF8BOM) {
+            $Encoding = New-Object System.Text.UTF8Encoding $True
+        } else { # 系統語言
+            if (!$__SysEnc__) { $Script:__SysEnc__ = [Text.Encoding]::GetEncoding((powershell -nop "([Text.Encoding]::Default).WebName")) }
+            $Encoding = $__SysEnc__
+        }
     }
 
     # 路徑處理
@@ -169,6 +186,6 @@ function Export-MssqlCsv {
         }
         return $Path
     }
-} # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees"
-# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"'
-# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230"  -SQLPath "sql\V03.sql"
+} # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -UTF8
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"' -UTF8
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\V03.sql" -UTF8

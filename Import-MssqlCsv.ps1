@@ -65,7 +65,10 @@ function Import-MssqlCsv {
         [Parameter(ParameterSetName = "", Mandatory)]
         [string] $CsvPath,
         [Parameter(ParameterSetName = "")]
-        [text.encoding] $Encoding = (New-Object System.Text.UTF8Encoding $False),
+        [Text.Encoding] $Encoding,
+        [switch] $UTF8,
+        [switch] $UTF8BOM,
+        [Parameter(ParameterSetName = "")]
         [switch] $NonHeaderFile
     )
     
@@ -73,6 +76,18 @@ function Import-MssqlCsv {
         # 設定值
         [string] $Terminator = ','
         [string] $RowTerminator = "`r`n"
+        # 處理編碼
+        if (!$Encoding) {
+            # 預選項編碼
+            if ($UTF8) {
+                $Encoding = New-Object System.Text.UTF8Encoding $False
+            } elseif ($UTF8BOM) {
+                $Encoding = New-Object System.Text.UTF8Encoding $True
+            } else { # 系統語言
+                if (!$__SysEnc__) { $Script:__SysEnc__ = [Text.Encoding]::GetEncoding((powershell -nop "([Text.Encoding]::Default).WebName")) }
+                $Encoding = $__SysEnc__
+            }
+        }
         # 確認輸入檔案存在
         if (!(Test-Path -PathType:Leaf $CsvPath)) { Write-Error "The [`$CsvPath:: `"$CsvPath`"] does not exist." -EA:Stop }
         [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
@@ -103,5 +118,5 @@ function Import-MssqlCsv {
             Message      = $Output -match ".+" -notmatch "Starting copy..."
         }
     }
-} #  Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "csv\Data.csv"
-# Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "data\Data.data" -NonHeaderFile
+} # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "csv\Data.csv" -UTF8
+# Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -CsvPath "data\Data.data" -NonHeaderFile -UTF8
