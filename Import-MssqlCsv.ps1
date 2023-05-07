@@ -34,13 +34,8 @@ function Remove-CsvQuotes {
                 $headerProcessed = $true
                 continue
             }
-            $fields = $line.Split($Delimiter)
-            $newLine = ""
-            for ($i = 0; $i -lt $fields.Length; $i++) {
-                $cleanField = $fields[$i] -replace('^"|"$') # -replace('"', '""')
-                if ($i -gt 0) { $newLine += $Delimiter }
-                $newLine += $cleanField
-            }; $writer.WriteLine($newLine)
+            $line = $line -replace "(?<=^|\s*$Delimiter\s*)""\s*|\s*""(?=\s*$Delimiter|$)" -replace '""', '"'
+            $writer.WriteLine($line)
         }; $reader.Close()
     }; $writer.Close()
     
