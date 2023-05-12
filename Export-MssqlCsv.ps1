@@ -70,6 +70,7 @@ function Export-MssqlCsv {
         [string] $SQLPath,
         [Parameter(ParameterSetName = "")]
         [string] $Path,
+        [string] $TempSqlPath,
         [Parameter(ParameterSetName = "")]
         [Text.Encoding] $Encoding,
         [switch] $UTF8,
@@ -153,8 +154,13 @@ function Export-MssqlCsv {
         $query += "SELECT`r`n    $($quotedColumns -join ",`r`n    ")`r`nFROM $Table;"
     
         # 輸出 QueryString 檔案
-        $tmp = New-TemporaryFile
-        $sqlFile = $tmp.FullName
+        if ($TempSqlPath) {
+            $TempSqlPath = [IO.Path]::GetFullPath($TempSqlPath)
+            $sqlFile = $TempSqlPath
+        } else {
+            $tmp = New-TemporaryFile
+            $sqlFile = $tmp.FullName
+        }
         if (!(Test-Path $sqlFile)) { New-Item $sqlFile -ItemType:File -Force | Out-Null }
         $query | Set-Content -Encoding utf8 $sqlFile
     } else {
@@ -189,3 +195,5 @@ function Export-MssqlCsv {
 } # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"' -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\V03.sql" -UTF8
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\V03.sql" -UTF8
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -TempSqlPath "sql\Employees.sql" -Path "csv\Employees.csv" -UTF8
