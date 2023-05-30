@@ -78,7 +78,8 @@ function Import-MssqlCsv {
         [Parameter(ParameterSetName = "")]
         [Text.Encoding] $Encoding,
         [switch] $UTF8,
-        [switch] $UTF8BOM
+        [switch] $UTF8BOM,
+        [switch] $CleanTable
     )
     
     begin {
@@ -106,6 +107,7 @@ function Import-MssqlCsv {
     }
     
     process {
+        if ($CleanTable) { $Result = sqlcmd -S $ServerName -U $UserName -P $Passwd -f ($Encoding.CodePage) -Q "DELETE FROM $Table" }
         $Result = & bcp $Table in $Path -C ($Encoding).CodePage -c -t $Terminator -r $RowTerminator -S $ServerName -U $UserName -P $Passwd
         $HasError = $false
         $RowsCopied = 0
@@ -129,4 +131,4 @@ function Import-MssqlCsv {
     }
 } # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8
 # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -Path "data\Data.data" -NoHeaders -UTF8
-# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" "csv\Data.csv" -UTF8
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST2]" "csv\Data.csv" -UTF8 -CleanTable
