@@ -56,25 +56,34 @@ function Split-SqlTableName {
 function Export-MssqlCsv {
     [CmdletBinding(DefaultParameterSetName = "Table")]
     param (
+        # 登入資訊
         [Parameter(Position = 0, ParameterSetName = "", Mandatory)]
         [string] $ServerName,
         [Parameter(Position = 1, ParameterSetName = "", Mandatory)]
         [string] $UserName,
         [Parameter(Position = 2, ParameterSetName = "", Mandatory)]
         [string] $Passwd,
+        # 下載源 (表格/Query語句)
         [Parameter(Position = 3, ParameterSetName = "Table", Mandatory)]
         [string] $Table,
-        [Parameter(ParameterSetName = "Table")]
-        [string] $HeaderString,
-        [Parameter(Position = 3, ParameterSetName = "SQL", Mandatory)]
-        [string] $SQLPath,
+        [Parameter(Position = 3, ParameterSetName = "SQLPath", Mandatory)]
+        [string] $SQLPath,       # 使用 [-SQLPath] 來啟用這項
+        [Parameter(Position = 3, ParameterSetName = "SQLQuery", Mandatory, ValueFromPipeline)]
+        [string] $SQLQuery,      # 使用 [-SQLQuery, 管道] 來啟用這項
+        # 附加選項
+        [Parameter(ParameterSetName = "")]
+        [string] $HeaderString,  # 自定義CSV第一行的Header
+        [Parameter(ParameterSetName = "")]
+        [string] $TempSqlPath,   # 指定自動生成的語句的儲存位置 (未指定是放在temp且會自動刪除)
+        # 輸出位置
         [Parameter(ParameterSetName = "")]
         [string] $Path,
-        [string] $TempSqlPath,
+        # 編碼
         [Parameter(ParameterSetName = "")]
         [Text.Encoding] $Encoding,
         [switch] $UTF8,
         [switch] $UTF8BOM,
+        # 其他選項
         [Parameter(ParameterSetName = "")]
         [switch] $OutNull,
         [switch] $OutToTemp,
@@ -117,57 +126,62 @@ function Export-MssqlCsv {
         }
     } else { $Path = [IO.Path]::GetFullPath($Path) }
     
-    # 創建空檔案
-    if (!(Test-Path $Path)) { New-Item $Path -ItemType:File -Force -EA:Stop | Out-Null }
-    
-    if (!$SQLPath) {
-        # 建立連接到資料庫的 SqlConnection 物件
-        $connectionString = "Server=$ServerName;Database=$DatabaseName;User Id=$UserName;Password=$Passwd;"
-        $sqlConnection = New-Object -TypeName System.Data.SqlClient.SqlConnection -ArgumentList $connectionString
-        try {
-            $sqlConnection.Open()
-        } catch { Write-Error "Unable to open SQL connection: $_" -EA:Stop }
+    # 若輸入非$SQLPath則自動生成SQL文件
+    if ($SQLPath) {
+        $sqlFile = $SQLPath
+    } else {
+        # 生成 Query 語句
+        if ($SQLQuery) {
+            $query = $SQLQuery
+        } else {
+            # 建立連接到資料庫的 SqlConnection 物件
+            $connectionString = "Server=$ServerName;Database=$DatabaseName;User Id=$UserName;Password=$Passwd;"
+            $sqlConnection = New-Object -TypeName System.Data.SqlClient.SqlConnection -ArgumentList $connectionString
+            try {
+                $sqlConnection.Open()
+            } catch { Write-Error "Unable to open SQL connection: $_" -EA:Stop }
+            
+            # 檢查表格或檢視是否存在
+            $cmdText = "SELECT COUNT(*) FROM sys.objects WHERE object_id = OBJECT_ID(N'$FullTableName') AND type IN (N'U', N'V')"
+            $sqlCommand = New-Object -TypeName System.Data.SqlClient.SqlCommand -ArgumentList $cmdText, $sqlConnection
+            $tableExists = [int]$sqlCommand.ExecuteScalar()
+            if ($tableExists -eq 0) { Write-Error "Table/view '$FullTableName' does not exist." -EA:Stop }
         
-        # 檢查表格或檢視是否存在
-        $cmdText = "SELECT COUNT(*) FROM sys.objects WHERE object_id = OBJECT_ID(N'$FullTableName') AND type IN (N'U', N'V')"
-        $sqlCommand = New-Object -TypeName System.Data.SqlClient.SqlCommand -ArgumentList $cmdText, $sqlConnection
-        $tableExists = [int]$sqlCommand.ExecuteScalar()
-        if ($tableExists -eq 0) { Write-Error "Table/view '$FullTableName' does not exist." -EA:Stop }
-    
-        # 獲取表格的所有列名
-        $getColumnsCommand = $sqlConnection.CreateCommand()
-        $getColumnsCommand.CommandText = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '$SchemaName' AND TABLE_NAME = '$TableName'"
-        $columnReader = $getColumnsCommand.ExecuteReader()
-        $columns = @()
-        while ($columnReader.Read()) {
-            $columns += $columnReader["COLUMN_NAME"]
+            # 獲取表格的所有列名
+            $getColumnsCommand = $sqlConnection.CreateCommand()
+            $getColumnsCommand.CommandText = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '$SchemaName' AND TABLE_NAME = '$TableName'"
+            $columnReader = $getColumnsCommand.ExecuteReader()
+            $columns = @()
+            while ($columnReader.Read()) {
+                $columns += $columnReader["COLUMN_NAME"]
+            }
+            $sqlConnection.Close()
+        
+            # 創建一個將所有列名包裹在雙引號中的 SQL 查詢
+            if (!$HeaderString) {
+                $quotedFields = "SELECT "+"'`"" +($Columns -join "`"','`"")+ "`"'"
+            } else { $quotedFields = "SELECT '$HeaderString'" }
+            $quotedColumns = $columns -replace ('^(.+)$', '''"'' + REPLACE(ISNULL($1,''''), ''"'', ''""'') + ''"'' AS $1')
+            $query  = "SET NOCOUNT ON`r`n"
+            $query += "$quotedFields`r`n"
+            $query += "SELECT`r`n    $($quotedColumns -join ",`r`n    ")`r`nFROM $Table;"
         }
-        $sqlConnection.Close()
     
-        # 創建一個將所有列名包裹在雙引號中的 SQL 查詢
-        if (!$HeaderString) {
-            $quotedFields = "SELECT "+"'`"" +($Columns -join "`"','`"")+ "`"'"
-        } else { $quotedFields = "SELECT '$HeaderString'" }
-        $quotedColumns = $columns -replace ('^(.+)$', '''"'' + REPLACE(ISNULL($1,''''), ''"'', ''""'') + ''"'' AS $1')
-        $query  = "SET NOCOUNT ON`r`n"
-        $query += "$quotedFields`r`n"
-        $query += "SELECT`r`n    $($quotedColumns -join ",`r`n    ")`r`nFROM $Table;"
-    
-        # 輸出 QueryString 檔案
+        # 生成空白檔案
         if ($TempSqlPath) {
             $TempSqlPath = [IO.Path]::GetFullPath($TempSqlPath)
             $sqlFile = $TempSqlPath
         } else {
             $tmp = New-TemporaryFile
             $sqlFile = $tmp.FullName
-        }
-        if (!(Test-Path $sqlFile)) { New-Item $sqlFile -ItemType:File -Force | Out-Null }
+        } if (!(Test-Path $sqlFile)) { New-Item $sqlFile -ItemType:File -Force | Out-Null }
+        
+        # 輸出 QueryString 到檔案
         $query | Set-Content -Encoding utf8 $sqlFile
-    } else {
-        $sqlFile = $SQLPath
     }
-       
+    
     # 下載
+    if (!(Test-Path $Path)) { New-Item $Path -ItemType:File -Force -EA:Stop | Out-Null }
     sqlcmd -S $ServerName -U $UserName -P $Passwd -i $sqlFile -o $Path -b -s ',' -W -h -1 -f ($Encoding.CodePage)
 
     # 刪除暫存SQL檔案
@@ -185,7 +199,15 @@ function Export-MssqlCsv {
         return $null
     } else {
         if (!$OutNull) {
-            Write-Host "Success:: SQL execution completed, `"$FullTableName`" has been downloaded."
+            if ($Table) {
+                $name = $FullTableName
+            } elseif($SQLPath) {
+                $name = $sqlFile
+            } elseif ($SQLQuery) {
+                $name = $SQLQuery
+            }
+            Write-Host "Success::" -BackgroundColor DarkGreen -ForegroundColor White -NoNewline
+            Write-Host " SQL execution completed, '$name' has been downloaded."
         }
         if ($OpenOutDir) {
             explorer.exe (Split-Path $Path -Parent)
@@ -194,6 +216,7 @@ function Export-MssqlCsv {
     }
 } # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"' -UTF8
-# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\V03.sql" -UTF8
-# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\V03.sql" -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -TempSqlPath "sql\Employees.sql" -Path "csv\Employees.csv" -UTF8
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\V03.sql" -UTF8 -Path "csv\V03.csv"
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLQuery "Select * From CHG.CHG.Employees" -Path "csv\Employees2.csv" -UTF8
+# "Select * From CHG.CHG.Employees" | Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Path "csv\Employees2.csv" -UTF8
