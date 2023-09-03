@@ -132,7 +132,7 @@ function Export-MssqlCsv {
     } else {
         # 生成 Query 語句
         if ($SQLQuery) {
-            $query = $SQLQuery
+            $query = "SET NOCOUNT ON`r`n" + $SQLQuery
         } else {
             # 建立連接到資料庫的 SqlConnection 物件
             $connectionString = "Server=$ServerName;Database=$DatabaseName;User Id=$UserName;Password=$Passwd;"
@@ -177,7 +177,7 @@ function Export-MssqlCsv {
         } if (!(Test-Path $sqlFile)) { New-Item $sqlFile -ItemType:File -Force | Out-Null }
         
         # 輸出 QueryString 到檔案
-        $query | Set-Content -Encoding utf8 $sqlFile
+        [IO.File]::WriteAllText($sqlFile, $query, $Encoding)
     }
     
     # 下載
@@ -217,6 +217,8 @@ function Export-MssqlCsv {
 } # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"' -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -TempSqlPath "sql\Employees.sql" -Path "csv\Employees.csv" -UTF8
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\Employees.sql" -Path "csv\Employees.csv" -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\V03.sql" -UTF8 -Path "csv\V03.csv"
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLQuery "Select * From CHG.CHG.Employees" -Path "csv\Employees2.csv" -UTF8
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLQuery "Select * From CHG.CHG.Employees Where FirstName = N'あいうえおㄅㄆㄇㄈ'" -TempSqlPath "sql\Employees2.sql" -Path "csv\Employees2.csv" -UTF8
 # "Select * From CHG.CHG.Employees" | Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Path "csv\Employees2.csv" -UTF8
