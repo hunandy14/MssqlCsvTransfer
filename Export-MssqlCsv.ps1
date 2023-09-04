@@ -87,7 +87,8 @@ function Export-MssqlCsv {
         [Parameter(ParameterSetName = "")]
         [switch] $OutNull,
         [switch] $OutToTemp,
-        [switch] $OpenOutDir
+        [switch] $OpenOutDir,
+        [switch] $ShowCommand
     )
     
     # 獲取 [資料庫名, 模式名, 表名]
@@ -119,10 +120,12 @@ function Export-MssqlCsv {
     # 路徑處理
     [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
     if (!$Path) {
+        $outFileName = $TableName
+        if (!$outFileName) { $outFileName = 'QueryResult' }
         if ($OutToTemp) { # 輸出到臨時檔案
-            $Path = $env:TEMP + "\Export-MssqlCsv\$TableName.csv"
+            $Path = $env:TEMP + "\Export-MssqlCsv\$outFileName.csv"
         } else { # 輸出到當前資料夾
-            $Path = [IO.Path]::GetFullPath("$TableName.csv")
+            $Path = [IO.Path]::GetFullPath("$outFileName.csv")
         }
     } else { $Path = [IO.Path]::GetFullPath($Path) }
     
@@ -182,7 +185,9 @@ function Export-MssqlCsv {
     
     # 下載
     if (!(Test-Path $Path)) { New-Item $Path -ItemType:File -Force -EA:Stop | Out-Null }
-    sqlcmd -S $ServerName -U $UserName -P $Passwd -i $sqlFile -o $Path -b -s ',' -W -h -1 -f ($Encoding.CodePage)
+    $cmdStr = "sqlcmd -S '$ServerName' -U '$UserName' -P '$Passwd' -i '$sqlFile' -o '$Path' -b -s ',' -W -h -1 -f $($Encoding.CodePage) -N -C"
+    if ($ShowCommand) { Write-Host $cmdStr -ForegroundColor DarkGray }
+    $cmdStr | Invoke-Expression
 
     # 刪除暫存SQL檔案
     if ($tmp) {
@@ -222,3 +227,6 @@ function Export-MssqlCsv {
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLQuery "Select * From CHG.CHG.Employees" -Path "csv\Employees2.csv" -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLQuery "Select * From CHG.CHG.Employees Where FirstName = N'あいうえおㄅㄆㄇㄈ'" -TempSqlPath "sql\Employees2.sql" -Path "csv\Employees2.csv" -UTF8
 # "Select * From CHG.CHG.Employees" | Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Path "csv\Employees2.csv" -UTF8
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\encrypt.sql" -Path "csv\encrypt.txt" -UTF8
+# Export-MssqlCsv "192.168.3.123,1433" "sa" "12301230" -SQLPath "sql\encrypt.sql" -Path "csv\encrypt.txt" -UTF8
+# "SET NOCOUNT ON; SELECT DISTINCT (encrypt_option) FROM sys.dm_exec_connections;" | Export-MssqlCsv "192.168.3.123,1433" "sa" "12301230" -UTF8 -ShowCommand
