@@ -30,7 +30,7 @@ Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" -Path "
 Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -CleanTable -UTF8
 
 # 上傳CSV檔案 (檔案包含檔頭)
-Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" -Path "csv\Data.data" -Csv_RemoveHeaders -UTF8
+Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" -Path "csv\Data.data" -Csv_RemoveQuotesHeaders -UTF8
 # 上傳CSV檔案 (檔案包含雙引號)
 Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" -Path "csv\Data.data" -Csv_RemoveQuotes -UTF8
 # 上傳CSV檔案 (檔案包數值包含逗號)

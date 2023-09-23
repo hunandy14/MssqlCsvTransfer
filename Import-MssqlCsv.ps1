@@ -88,8 +88,8 @@ function Import-MssqlCsv {
         # 前置處理CSV檔案 (會重寫第二份檔案)
         [Parameter(ParameterSetName = "")]
         [switch] $Csv_RemoveQuotes,
-            [switch] $Csv_RemoveHeaders,     # 待修這兩個啟動之後都會連帶Csv_RemoveQuotes (大概只能拆掉函式Remove-CsvQuotes變成修改之類的)
-            [string] $Csv_ReplaceDelimiter,  # 待修這兩個啟動之後都會連帶Csv_RemoveQuotes (大概只能拆掉函式Remove-CsvQuotes變成修改之類的)
+        [switch] $Csv_RemoveQuotesHeaders,
+        [string] $Csv_ReplaceDelimiter,
         [string] $TempPath, # 使用 '.tmp' 會自動刪除
         # 編碼相關
         [Parameter(ParameterSetName = "")]
@@ -128,8 +128,8 @@ function Import-MssqlCsv {
         [IO.Directory]::SetCurrentDirectory(((Get-Location -PSProvider FileSystem).ProviderPath))
         $Path = [IO.Path]::GetFullPath($Path)
         # 消除檔頭與雙引號
-        if ($Csv_RemoveHeaders -or $Csv_RemoveQuotes -or $Csv_ReplaceDelimiter) {
-            $Path = $tmp = Remove-CsvQuotes $Path -Output:$TempPath -RemoveHeader:$Csv_RemoveHeaders -ReplaceDelimiter:$Csv_ReplaceDelimiter -Encoding:$Encoding
+        if ($Csv_RemoveQuotesHeaders -or $Csv_RemoveQuotes -or $Csv_ReplaceDelimiter) {
+            $Path = $tmp = Remove-CsvQuotes $Path -Output:$TempPath -RemoveHeader:$Csv_RemoveQuotesHeaders -ReplaceDelimiter:$Csv_ReplaceDelimiter -Encoding:$Encoding
             if ($Csv_ReplaceDelimiter) { $Delimiter = $Csv_ReplaceDelimiter }
         }
     }
@@ -178,8 +178,8 @@ function Import-MssqlCsv {
     }
 }
 # Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand |Out-Null
-# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand |Out-Null
-# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -Csv_RemoveHeaders |Out-Null
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -Csv_RemoveQuotes |Out-Null
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -Csv_RemoveQuotesHeaders |Out-Null
 # Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '¬'  |Out-Null
 # Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,' |Out-Null
 # Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,' -TempPath "data\Data.csv" |Out-Null
