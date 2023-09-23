@@ -173,7 +173,7 @@ function Export-MssqlCsv {
         # 生成空白檔案
         if ($TempSqlPath) {
             $TempSqlPath = [IO.Path]::GetFullPath($TempSqlPath)
-            $sqlFile = $TempSqlPath
+            $sqlFile = $tmp = $TempSqlPath
         } else {
             $tmp = New-TemporaryFile
             $sqlFile = $tmp.FullName
@@ -191,8 +191,7 @@ function Export-MssqlCsv {
 
     # 刪除暫存SQL檔案
     if ($tmp) {
-        $tmpPath = $tmp.FullName -replace '.tmp$'
-        Remove-Item "$tmpPath.tmp"
+        Remove-Item "$($tmp -replace '.tmp$').tmp"
     }
 
     # 執行完畢信息處理
