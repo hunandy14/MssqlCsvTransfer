@@ -99,7 +99,8 @@ function Import-MssqlCsv {
         # 其他選項
         [Parameter(ParameterSetName = "")]
         [switch] $CleanTable,
-        [switch] $ShowCommand
+        [switch] $ShowCommand,
+        [switch] $OutNull
     )
     
     begin {
@@ -135,11 +136,15 @@ function Import-MssqlCsv {
     
     process {
         # 清空既有的表格
-        if ($CleanTable) { $Result = sqlcmd -S $ServerName -U $UserName -P $Passwd -f ($Encoding.CodePage) -Q "DELETE FROM $Table" }
+        if ($CleanTable) { sqlcmd -S $ServerName -U $UserName -P $Passwd -f ($Encoding.CodePage) -Q "DELETE FROM $Table" }
         # 執行命令 bcp 命令上傳
         $cmdStr = "bcp $Table in $Path -C $(($Encoding).CodePage) -c -t $Delimiter -r $Terminator -S $ServerName -U $UserName -P $Passwd"
         if ($ShowCommand) { Write-Host $cmdStr -ForegroundColor DarkGray }
-        $Result = $cmdStr | Invoke-Expression
+        $Result = @()
+        (Invoke-Expression $cmdStr) | ForEach-Object {
+            if (!$OutNull) { Write-Host $_ }
+            $Result += $_
+        }; if (!$OutNull) { Write-Host "" }
         # 獲取上傳結果
         $HasError = $false; $RowsCopied = 0
         if (($Result -join "`r`n") -match "(\d+) rows copied\.") {
