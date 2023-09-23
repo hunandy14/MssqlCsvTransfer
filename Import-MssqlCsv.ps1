@@ -2,7 +2,7 @@
 function Remove-CsvQuotes {
     param (
         [Parameter(Position = 0, ParameterSetName = "", Mandatory)]
-        [string] $Path,
+        [string] $Path,            # 輸入的帶有雙引號的CSV數據
         [Parameter(ParameterSetName = "")]
         [string] $Output,
         [Parameter(ParameterSetName = "")]
@@ -10,10 +10,12 @@ function Remove-CsvQuotes {
         [switch] $UTF8,
         [switch] $UTF8BOM,
         [Parameter(ParameterSetName = "")]
-        [switch] $RemoveHeader
+        [switch] $RemoveHeader,    # 移除CSV的字段
+        [Parameter(ParameterSetName = "")]
+        [string] $ReplaceDelimiter # 替換CSV的分隔符號 (推薦的符號 ¬ )
     )
     
-    # 設定分隔符號
+    # 設定預設分隔符號
     [string] $Delimiter = ','
     
     # 處理編碼
@@ -49,7 +51,14 @@ function Remove-CsvQuotes {
                 $headerProcessed = $true
                 continue
             }
-            $line = $line -replace "(?<=^|\s*$Delimiter\s*)""\s*|\s*""(?=\s*$Delimiter|$)" -replace '""', '"'
+            # 更換分隔符號
+            if ($ReplaceDelimiter) {
+                $line = $line -replace "($Delimiter)(?=(?:[^""]*""[^""]*"")*[^""]*$)", $ReplaceDelimiter
+                $delim = $ReplaceDelimiter
+            } else { $delim = $Delimiter }
+            # 消除雙引號
+            $line = $line -replace "(?<=^|\s*$delim\s*)""\s*|\s*""(?=\s*$delim|$)" -replace '""', '"'
+            # 寫入檔案
             $writer.WriteLine($line)
         }; $reader.Close()
     }; $writer.Close()
@@ -57,6 +66,7 @@ function Remove-CsvQuotes {
     return $Output
 } # Remove-CsvQuotes 'csv\Data.csv' -Output 'data\Data.data' -RemoveHeader
 # $tmp = Remove-CsvQuotes 'csv\Data.csv' -RemoveHeader; if ($tmp) { $tmp; Remove-Item "$($tmp -replace '.tmp$').tmp" }
+# Remove-CsvQuotes 'csv\Data.csv' -Output 'data\Data.data' -RemoveHeader -ReplaceDelimiter '¬' -UTF8BOM
 
 
 
