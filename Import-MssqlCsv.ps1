@@ -88,8 +88,8 @@ function Import-MssqlCsv {
         # 前置處理CSV檔案 (會重寫第二份檔案)
         [Parameter(ParameterSetName = "")]
         [switch] $Csv_RemoveQuotes,
-        [switch] $Csv_RemoveHeaders,
-        [string] $Csv_ReplaceDelimiter,
+            [switch] $Csv_RemoveHeaders,     # 待修這兩個啟動之後都會連帶Csv_RemoveQuotes (大概只能拆掉函式Remove-CsvQuotes變成修改之類的)
+            [string] $Csv_ReplaceDelimiter,  # 待修這兩個啟動之後都會連帶Csv_RemoveQuotes (大概只能拆掉函式Remove-CsvQuotes變成修改之類的)
         [string] $TempPath, # 使用 '.tmp' 會自動刪除
         # 編碼相關
         [Parameter(ParameterSetName = "")]
@@ -105,13 +105,14 @@ function Import-MssqlCsv {
     
     begin {
         # 設定值
-        [string] $Delimiter = '","'
+        [string] $Delimiter = ','
         [string] $Terminator = '"`r`n"'
         # 檢查分隔符號是不是 ASCII 字符
         if ($Csv_ReplaceDelimiter -and ($Csv_ReplaceDelimiter -match '[^\x00-\x7F]')) {
             Write-Error "The delimiter '$Csv_ReplaceDelimiter' contains non-ASCII characters. Please use ASCII characters only." -ErrorAction Stop
         }
         # 處理編碼
+        if (!$__SysEnc__) { $Script:__SysEnc__ = [Text.Encoding]::GetEncoding((powershell -nop "([Text.Encoding]::Default).WebName")) }
         if (!$Encoding) {
             # 預選項編碼
             if ($UTF8) {
@@ -119,7 +120,6 @@ function Import-MssqlCsv {
             } elseif ($UTF8BOM) {
                 $Encoding = New-Object System.Text.UTF8Encoding $True
             } else { # 系統語言
-                if (!$__SysEnc__) { $Script:__SysEnc__ = [Text.Encoding]::GetEncoding((powershell -nop "([Text.Encoding]::Default).WebName")) }
                 $Encoding = $__SysEnc__
             }
         }
@@ -135,10 +135,21 @@ function Import-MssqlCsv {
     }
     
     process {
+        # 獲取編碼號
+        $EnvCodePage = $__SysEnc__.CodePage
+        $CsvCodePage = $Encoding.CodePage
         # 清空既有的表格
-        if ($CleanTable) { sqlcmd -S $ServerName -U $UserName -P $Passwd -f ($Encoding.CodePage) -Q "DELETE FROM $Table" }
+        if ($CleanTable) {
+            $cmdStr = "sqlcmd -S $ServerName -U $UserName -P $Passwd -f $EnvCodePage -Q 'DELETE FROM $Table'"
+            if ($ShowCommand) { Write-Host $cmdStr -ForegroundColor DarkGray }
+            $Result = @()
+            (Invoke-Expression $cmdStr) | ForEach-Object {
+                if (!$OutNull) { Write-Host $_ }
+                $Result += $_
+            }; if (!$OutNull) { Write-Host "" }
+        }
         # 執行命令 bcp 命令上傳
-        $cmdStr = "bcp $Table in $Path -C $(($Encoding).CodePage) -c -t $Delimiter -r $Terminator -S $ServerName -U $UserName -P $Passwd"
+        $cmdStr = "bcp $Table in '$Path' -C $CsvCodePage -c -t '$Delimiter' -r $Terminator -S $ServerName -U $UserName -P $Passwd"
         if ($ShowCommand) { Write-Host $cmdStr -ForegroundColor DarkGray }
         $Result = @()
         (Invoke-Expression $cmdStr) | ForEach-Object {
@@ -165,10 +176,11 @@ function Import-MssqlCsv {
             Message      = $Result -match ".+" -notmatch "Starting copy..."
         }
     }
-} # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8
-# Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -Csv_RemoveHeaders -UTF8
-# Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -Csv_RemoveHeaders -UTF8 -ShowCommand
-# (Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" "csv\Data.csv" -UTF8 -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '¬').Message
-# (Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" "csv\Data.csv" -UTF8 -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,').Message
-# (Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" "csv\Data.csv" -TempPath "data\Data.csv" -UTF8 -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,').Message
-# (Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" "csv\Data.csv" -TempPath "data\Data.tmp" -UTF8 -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,').Message
+}
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand |Out-Null
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand |Out-Null
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -Csv_RemoveHeaders |Out-Null
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '¬'  |Out-Null
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,' |Out-Null
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,' -TempPath "data\Data.csv" |Out-Null
+# Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -Table "[CHG].[CHG].[TEST]" -Path "csv\Data.csv" -UTF8 -ShowCommand -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,' -TempPath "data\Data.tmp" |Out-Null
