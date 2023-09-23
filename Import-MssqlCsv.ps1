@@ -147,8 +147,8 @@ function Import-MssqlCsv {
     
     end {
         # 刪除暫存檔案
-        if ($tmp) {
-            Remove-Item "$($tmp -replace '.tmp$').tmp"
+        if ($tmp -and ($tmp  -match "\.tmp$")) {
+            Remove-Item "$($tmp -replace '\.tmp$').tmp"
         }
         # 回傳物件
         return @{

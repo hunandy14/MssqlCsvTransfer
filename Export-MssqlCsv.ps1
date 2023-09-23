@@ -190,8 +190,8 @@ function Export-MssqlCsv {
     $cmdStr | Invoke-Expression
 
     # 刪除暫存SQL檔案
-    if ($tmp) {
-        Remove-Item "$($tmp -replace '.tmp$').tmp"
+    if ($tmp -and ($tmp  -match "\.tmp$")) {
+        Remove-Item "$($tmp -replace '\.tmp$').tmp"
     }
 
     # 執行完畢信息處理
@@ -221,6 +221,7 @@ function Export-MssqlCsv {
 } # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -HeaderString '"EmployeeID","FirstName","LastName","BirthDate"' -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -TempSqlPath "sql\Employees.sql" -Path "csv\Employees.csv" -UTF8
+# Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "CHG.CHG.Employees" -TempSqlPath "sql\Employees.tmp" -Path "csv\Employees.csv" -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\Employees.sql" -Path "csv\Employees.csv" -UTF8
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLPath "sql\V03.sql" -UTF8 -Path "csv\V03.csv"
 # Export-MssqlCsv "192.168.3.123,1433" "kaede" "1230" -SQLQuery "Select * From CHG.CHG.Employees" -Path "csv\Employees2.csv" -UTF8
