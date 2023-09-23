@@ -90,6 +90,7 @@ function Import-MssqlCsv {
         [switch] $Csv_RemoveQuotes,
         [switch] $Csv_RemoveHeaders,
         [string] $Csv_ReplaceDelimiter,
+        [string] $TempPath, # 使用 '.tmp' 會自動刪除
         # 編碼相關
         [Parameter(ParameterSetName = "")]
         [Text.Encoding] $Encoding,
@@ -126,7 +127,7 @@ function Import-MssqlCsv {
         $Path = [IO.Path]::GetFullPath($Path)
         # 消除檔頭與雙引號
         if ($Csv_RemoveHeaders -or $Csv_RemoveQuotes -or $Csv_ReplaceDelimiter) {
-            $Path = $tmp = Remove-CsvQuotes $Path -RemoveHeader:$Csv_RemoveHeaders -ReplaceDelimiter:$Csv_ReplaceDelimiter -Encoding:$Encoding
+            $Path = $tmp = Remove-CsvQuotes $Path -Output:$TempPath -RemoveHeader:$Csv_RemoveHeaders -ReplaceDelimiter:$Csv_ReplaceDelimiter -Encoding:$Encoding
             if ($Csv_ReplaceDelimiter) { $Delimiter = $Csv_ReplaceDelimiter }
         }
     }
@@ -160,3 +161,5 @@ function Import-MssqlCsv {
 # Import-MssqlCsv -ServerName "192.168.3.123,1433" -UserName "kaede" -Passwd "1230" -Table "[CHG].[CHG].[TEST]" -Path "data\Data.data" -NoHeaders -UTF8
 # (Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" "csv\Data.csv" -UTF8 -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '¬').Message
 # (Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" "csv\Data.csv" -UTF8 -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,').Message
+# (Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" "csv\Data.csv" -TempPath "data\Data.csv" -UTF8 -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,').Message
+# (Import-MssqlCsv "192.168.3.123,1433" "kaede" "1230" "[CHG].[CHG].[TEST]" "csv\Data.csv" -TempPath "data\Data.tmp" -UTF8 -CleanTable -Csv_RemoveQuotes -Csv_ReplaceDelimiter '`,').Message
