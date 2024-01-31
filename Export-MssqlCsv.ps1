@@ -188,6 +188,7 @@ function Export-MssqlCsv {
     $cmdStr = "sqlcmd -S '$ServerName' -U '$UserName' -P '$Passwd' -i '$sqlFile' -o '$Path' -b -s ',' -W -h -1 -f $($Encoding.CodePage) -N -C"
     if ($ShowCommand) { Write-Host $cmdStr -ForegroundColor DarkGray }
     $cmdStr | Invoke-Expression
+    $ErrorCode = $LASTEXITCODE
 
     # 刪除暫存SQL檔案
     if ($tmp -and ($tmp  -match "\.tmp$")) {
@@ -195,7 +196,7 @@ function Export-MssqlCsv {
     }
 
     # 執行完畢信息處理
-    if ($LASTEXITCODE -ne 0) {
+    if ($ErrorCode -ne 0) {
         $Content = (Get-Content -Path $Path) -join ", "
         if (!$OutNull) {
             Write-Error $Content -EA:Stop
