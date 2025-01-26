@@ -1,54 +1,35 @@
 # 拆分表名
 function Split-SqlTableName {
+    [CmdletBinding()]
     param (
         [Parameter(Position = 0, Mandatory, ValueFromPipeline)]
+        [ValidateNotNullOrEmpty()]
         [string]$TableName
     )
-
-    # 拆分表名並提取資料庫名，模式名和表名
-    $splitTable = $TableName.Split('.')
-    $databaseName = $null
-    $schemaName = $null
-    $tableName = $null
-
-    switch ($splitTable.Length) {
-        1 {
-            $tableName = $splitTable[0] -Replace("^\[|\]$")
+    
+    process {
+        # 拆分表名並提取資料庫名，模式名和表名
+        $parts = "$TableName".Split('.') -replace '^\[|\]$'
+        
+        $result = switch ($parts.Count) {
+            1 { @($null, $null, $parts[0]); break }
+            2 { @($null, $parts[0], $parts[1]); break }
+            3 { @($parts[0], $parts[1], $parts[2]); break }
+            default { 
+                Write-Error "Invalid table name format: $TableName" -ErrorAction $ErrorActionPreference
+                return
+            }
         }
-        2 {
-            $schemaName = $splitTable[0] -Replace("^\[|\]$")
-            $tableName = $splitTable[1] -Replace("^\[|\]$")
-        }
-        3 {
-            $databaseName = $splitTable[0] -Replace("^\[|\]$")
-            $schemaName = $splitTable[1] -Replace("^\[|\]$")
-            $tableName = $splitTable[2] -Replace("^\[|\]$")
-        }
-        default {
-            return $null
-        }
-    }
 
-    # 拼接完整表名
-    $fullTableName = [string]::Empty
-    if ($databaseName) {
-        $fullTableName += "[$databaseName]."
+        # 返回包含完整表名的 PSCustomObject
+        [PSCustomObject]@{
+            DatabaseName = $result[0]
+            SchemaName = $result[1]
+            TableName = $result[2]
+            FullTableName = '[{0}]' -f ($result.Where({$_}) -join '].[')
+        }
     }
-    if ($schemaName) {
-        $fullTableName += "[$schemaName]."
-    }
-    if ($tableName) {
-        $fullTableName += "[$tableName]"
-    }
-
-    # 返回包含完整表名的 PSCustomObject
-    return [PSCustomObject]@{
-        DatabaseName = $databaseName
-        SchemaName = $schemaName
-        TableName = $tableName
-        FullTableName = $fullTableName
-    }
-} # "[CHG].[CHG].[TEST]" | Split-SqlTableName
+} # "[CHG].[CHG].[TEST]", "CHG.CHG.TEST2", "CHG.TEST3", "TEST4" | Split-SqlTableName
 
 
 
