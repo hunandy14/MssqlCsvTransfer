@@ -170,4 +170,4 @@ function Test-SqlQueryResult {
     
     # 輸出到CSV
     $data | ConvertTo-CsvString | Set-Content "tmp\CHG.CHG.Table02.csv"
-} Test-SqlQueryResult
+} # Test-SqlQueryResult
