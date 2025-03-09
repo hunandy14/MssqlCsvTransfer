@@ -31,11 +31,86 @@ function Split-SqlTableName {
     }
 } # "[CHG].[CHG].[TEST]", "CHG.CHG.TEST2", "CHG.TEST3", "TEST4" | Split-SqlTableName
 
-
-
 # 匯出MSSQL表的CSV檔案
 function Export-MssqlToCsv {
     [CmdletBinding(DefaultParameterSetName = "")]
     param (
     )
 }
+
+# 從SQL查詢獲取結果並輸出到管道 (極簡流式處理版本)
+function Get-SqlQueryResult {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$ConnectionString,
+        
+        [Parameter(Mandatory)]
+        [string]$Query
+    )
+    
+    try {
+        # 建立連接
+        $conn = New-Object System.Data.SqlClient.SqlConnection($ConnectionString)
+        $conn.Open()
+        
+        # 建立命令
+        $cmd = New-Object System.Data.SqlClient.SqlCommand($Query, $conn)
+        
+        # 建立資料讀取器，並使用 SequentialAccess 模式提高效能
+        $reader = $cmd.ExecuteReader([System.Data.CommandBehavior]::SequentialAccess)
+        if (-not $reader.HasRows) { Write-Verbose "Query did not return any data"; return }
+        
+        # 獲取欄位名稱
+        $fieldCount = $reader.FieldCount
+        $columnNames = 0..($fieldCount-1) | ForEach-Object { $reader.GetName($_) }
+        
+        # 讀取資料並立即輸出 (純流式處理)
+        while ($reader.Read()) {
+            # 創建屬性雜湊表
+            $properties = [ordered]@{}
+            
+            # 填充屬性
+            for ($i = 0; $i -lt $fieldCount; $i++) {
+                $properties[$columnNames[$i]] = if ($reader.IsDBNull($i)) { $null } else { $reader.GetValue($i) }
+            }
+            
+            # 直接創建並輸出物件 (流式輸出)
+            [PSCustomObject]$properties
+        }
+    }
+    catch {
+        Write-Error -ErrorRecord $_
+    }
+    finally {
+        # 釋放資源
+        if ($reader) { $reader.Dispose() }
+        if ($cmd) { $cmd.Dispose() }
+        if ($conn) { $conn.Dispose() }
+    }
+}
+
+# 測試用指令
+function Test-SqlQueryResult {
+    [CmdletBinding()]
+    param()
+    
+    # 連接資訊
+    $serverInstance = "UX533-PC"
+    $username = "chg"
+    $password = "1230"
+    
+    # 建立連接字串
+    $connectionString = "Server=$serverInstance;Database=$database;User Id=$username;Password=$password"
+    
+    # 查詢
+    $query = "SELECT TOP (1000) [Id]
+      ,[Name]
+      ,[Value]
+      ,[Date]
+  FROM [CHG].[CHG].[Table02]"
+    
+    # 執行查詢
+    Get-SqlQueryResult -ConnectionString $connectionString -Query $query -Verbose
+}
+Test-SqlQueryResult
