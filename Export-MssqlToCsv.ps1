@@ -125,26 +125,23 @@ function ConvertTo-CsvString {
     process {
         # 格式化並連接所有值
         ($RawData | ForEach-Object {
-            # 處理 NULL 值
-            if ($null -eq $_ -or $_ -is [System.DBNull]) { 
-                $NullValue 
-            }
-            # 處理日期時間
-            elseif ($_ -is [DateTime]) {
-                $_.ToString($DateTimeFormat)
-            }
-            else {
-                # 轉換為字串
-                $strValue = $_.ToString()
-                
-                # 檢查是否需要引號並處理
-                if ($strValue -match $csvRules.NeedsQuotes) {
-                    # 處理引號：將字串中的每個引號替換為兩個引號
-                    $escaped = $strValue -replace $csvRules.QuoteChar, $csvRules.EscapeChar
-                    "$($csvRules.QuoteChar)$escaped$($csvRules.QuoteChar)"
+            switch ($_) {
+                # 處理 NULL 值
+                { $null -eq $_ -or $_ -is [System.DBNull] } {
+                    $NullValue
+                    continue
                 }
-                else {
-                    $strValue
+                # 處理日期時間
+                { $_ -is [DateTime] } {
+                    $_.ToString($DateTimeFormat)
+                    continue
+                }
+                # 處理字串轉換與引號處理
+                default {
+                    $strValue = $_.ToString()
+                    if ($strValue -match $csvRules.NeedsQuotes) {
+                        $csvRules.QuoteChar + ($strValue -replace $csvRules.QuoteChar, $csvRules.EscapeChar) + $csvRules.QuoteChar
+                    } else { $strValue }
                 }
             }
         }) -join $csvRules.Delimiter
