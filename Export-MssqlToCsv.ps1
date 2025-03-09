@@ -67,6 +67,7 @@ function Get-SqlQueryResult {
         # 獲取欄位名稱
         $fieldCount = $reader.FieldCount
         $columnNames = 0..($fieldCount-1) | ForEach-Object { $reader.GetName($_) }
+        if ($Raw) { ,$columnNames }
         
         # 預先分配數組
         $values = New-Object object[] $fieldCount
@@ -97,6 +98,26 @@ function Get-SqlQueryResult {
     }
 }
 
+# 轉換RAW資料為CSV字串
+function ConvertTo-CsvString {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [object[]]$RawData
+    )
+    
+    begin {
+    }
+    
+    process {
+        # 使用 -join 運算符將陣列元素用逗號連接起來
+        $RawData -join ','
+    }
+    
+    end {
+    }
+}
+
 # 測試用指令
 function Test-SqlQueryResult {
     [CmdletBinding()]
@@ -115,5 +136,9 @@ function Test-SqlQueryResult {
     $query = "SELECT * FROM [CHG].[CHG].[Table02]"
     
     # 執行查詢
-    Get-SqlQueryResult -ConnectionString $connectionString -Query $query -Verbose
+    $data = Get-SqlQueryResult -ConnectionString $connectionString -Query $query -Verbose -Raw
+    
+    # 輸出到CSV
+    $data | ConvertTo-CsvString | Set-Content -Path "tmp\CHG.CHG.Table02.csv"
+    
 } Test-SqlQueryResult
