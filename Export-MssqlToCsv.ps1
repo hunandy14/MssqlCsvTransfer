@@ -68,23 +68,22 @@ function Get-SqlQueryResult {
         $fieldCount = $reader.FieldCount
         $columnNames = 0..($fieldCount-1) | ForEach-Object { $reader.GetName($_) }
         
-        # 如果使用原始輸出模式，預先分配數組
-        if ($Raw) { $values = New-Object object[] $fieldCount }
+        # 預先分配數組
+        $values = New-Object object[] $fieldCount
         
-        # 讀取資料並立即輸出 (純流式處理)
+        # 讀取資料流輸出
         while ($reader.Read()) {
-            # 高性能模式：一次獲取整行數據並直接輸出
-            if ($Raw) {
-                [void]$reader.GetValues($values)
-                , $values.Clone()
-            }
+            # 一次獲取整行數據
+            [void]$reader.GetValues($values)
+            
+            # 高性能模式：直接輸出數組
+            if ($Raw) { ,$values.Clone(); continue }
+            
             # 標準模式：輸出屬性雜湊表物件
-            else {
-                $properties = [ordered]@{}
-                for ($i = 0; $i -lt $fieldCount; $i++) {
-                    $properties[$columnNames[$i]] = if ($reader.IsDBNull($i)) { $null } else { $reader.GetValue($i) }
-                }; [PSCustomObject]$properties
-            }
+            $properties = [ordered]@{}
+            for ($i = 0; $i -lt $fieldCount; $i++) {
+                $properties[$columnNames[$i]] = if ($values[$i] -eq [DBNull]::Value) { $null } else { $values[$i] }
+            }; [PSCustomObject]$properties
         }
     }
     catch {
@@ -105,6 +104,7 @@ function Test-SqlQueryResult {
     
     # 連接資訊
     $serverInstance = "UX533-PC"
+    $database = "CHG"
     $username = "chg"
     $password = "1230"
     
@@ -112,13 +112,8 @@ function Test-SqlQueryResult {
     $connectionString = "Server=$serverInstance;Database=$database;User Id=$username;Password=$password"
     
     # 查詢
-    $query = "SELECT TOP (1000) [Id]
-      ,[Name]
-      ,[Value]
-      ,[Date]
-  FROM [CHG].[CHG].[Table02]"
+    $query = "SELECT * FROM [CHG].[CHG].[Table02]"
     
     # 執行查詢
     Get-SqlQueryResult -ConnectionString $connectionString -Query $query -Verbose
-}
-Test-SqlQueryResult
+} Test-SqlQueryResult
