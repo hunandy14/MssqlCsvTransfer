@@ -107,14 +107,54 @@ function ConvertTo-CsvString {
     )
     
     begin {
+        # 用於判斷是否需要引號包覆的函數
+        function NeedsQuoting($value) {
+            if ($null -eq $value) { return $false }  # NULL 值不需要引號
+            if ($value -eq '') { return $false }     # 空字串不需要引號
+            
+            $strValue = "$value"
+            
+            # 檢查是否包含需要引號的字元
+            return $strValue -match '[,\r\n"]' -or   # 包含逗號、換行或引號
+                   $strValue -match '^\s|\s$'        # 前後有空白
+        }
+        
+        # 處理值的函數，根據規則決定是否加引號並處理特殊情況
+        function FormatValue($value) {
+            # 處理 NULL 值 - 在 SQL 結果中，DBNull.Value 會被轉換為 $null
+            if ($null -eq $value -or $value -is [System.DBNull]) { 
+                return 'NULL' 
+            }
+            
+            # 處理空字串
+            if ($value -eq '') { return '' }
+            
+            # 處理日期時間格式
+            if ($value -is [DateTime]) {
+                return $value.ToString("yyyy-MM-dd HH:mm:ss.fff")
+            }
+            
+            # 轉換為字串，保留原始字元（包括控制字元）
+            $strValue = "$value"
+            
+            # 檢查是否需要引號
+            if (NeedsQuoting $strValue) {
+                # 處理引號：將字串中的每個引號替換為兩個引號
+                $quoted = $strValue -replace '"', '""'
+                return """$quoted"""  # 加上外層引號
+            } else {
+                return $strValue  # 不需要引號的情況
+            }
+        }
     }
     
     process {
-        # 使用 -join 運算符將陣列元素用逗號連接起來
-        $RawData -join ','
+        # 處理每個元素並用逗號連接
+        ($RawData | ForEach-Object { FormatValue $_ }) -join ','
     }
     
     end {
+        # 結束處理
     }
 }
 
