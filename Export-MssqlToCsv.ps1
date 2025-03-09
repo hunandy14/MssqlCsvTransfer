@@ -46,7 +46,10 @@ function Get-SqlQueryResult {
         [string]$ConnectionString,
         
         [Parameter(Mandatory)]
-        [string]$Query
+        [string]$Query,
+        
+        [Parameter()]
+        [switch]$Raw
     )
     
     try {
@@ -65,18 +68,23 @@ function Get-SqlQueryResult {
         $fieldCount = $reader.FieldCount
         $columnNames = 0..($fieldCount-1) | ForEach-Object { $reader.GetName($_) }
         
+        # 如果使用原始輸出模式，預先分配數組
+        if ($Raw) { $values = New-Object object[] $fieldCount }
+        
         # 讀取資料並立即輸出 (純流式處理)
         while ($reader.Read()) {
-            # 創建屬性雜湊表
-            $properties = [ordered]@{}
-            
-            # 填充屬性
-            for ($i = 0; $i -lt $fieldCount; $i++) {
-                $properties[$columnNames[$i]] = if ($reader.IsDBNull($i)) { $null } else { $reader.GetValue($i) }
+            # 高性能模式：一次獲取整行數據並直接輸出
+            if ($Raw) {
+                [void]$reader.GetValues($values)
+                , $values.Clone()
             }
-            
-            # 直接創建並輸出物件 (流式輸出)
-            [PSCustomObject]$properties
+            # 標準模式：輸出屬性雜湊表物件
+            else {
+                $properties = [ordered]@{}
+                for ($i = 0; $i -lt $fieldCount; $i++) {
+                    $properties[$columnNames[$i]] = if ($reader.IsDBNull($i)) { $null } else { $reader.GetValue($i) }
+                }; [PSCustomObject]$properties
+            }
         }
     }
     catch {
