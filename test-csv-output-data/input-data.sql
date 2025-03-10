@@ -1,9 +1,9 @@
 -- 清空表格
-TRUNCATE TABLE [Table02];
+TRUNCATE TABLE [CHG].[CHG].[Table02];
 GO
 
 -- 插入測試資料
-INSERT INTO [Table02] ([Name], [Value], [Date])
+INSERT INTO [CHG].[CHG].[Table02] ([Name], [Value], [Date])
 VALUES 
     -- 基礎測試
     (N'基本數值', N'1', GETDATE()),                       -- 基本測試
@@ -36,6 +36,8 @@ VALUES
     (N'中空格', N'Hello World', GETDATE()),            -- 中日韓空格測試 U+2002
     (N'窄空格', N'Hello World', GETDATE()),            -- 窄空格測試 U+2009
     (N'數空格', N'Hello World', GETDATE()),            -- 數學空格測試 U+205F
+    (N'結尾空格', N'Hello World ', GETDATE()),         -- 結尾空格測試
+    (N'結尾全形空格', N'Hello World　', GETDATE()),    -- 結尾全形空格測試
     (N'換行LF', N'Hello
 World', GETDATE()),                                    -- 含換行符測試
     (N'換行CR', N'Hello\r\nWorld', GETDATE()),          -- 含 CRLF 測試
@@ -68,7 +70,7 @@ World"""', GETDATE()),                                 -- 極端混合測試
 GO
 
 -- 查看結果
-SELECT * FROM [Table02];
+SELECT * FROM [CHG].[CHG].[Table02];
 GO
 
 -- 匯出建議：
