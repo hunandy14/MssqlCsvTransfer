@@ -190,53 +190,13 @@ function Test-SqlQueryResult {
     [CmdletBinding()]
     param()
     
-    # 建立連接字串
-    # $info = @{
-    #     Server   = "UX533-PC"
-    #     Database = "CHG"
-    #     UserId   = "chg"
-    #     Password = "1230"
-    # }
-    # $conn = "Server={0};Database={1};User Id={2};Password={3}" -f `
-    #     $info.Server, $info.Database, $info.UserId, $info.Password
-    
-    # $conn = [Data.SqlClient.SqlConnection](
-    #     ([Data.SqlClient.SqlConnectionStringBuilder]@{
-    #         DataSource     = 'UX533-PC'
-    #         InitialCatalog = 'CHG'
-    #         UserID         = 'chg'
-    #         Password       = '1230'
-    #     }).ConnectionString
-    # )
-    
-    # $conn = [Data.SqlClient.SqlConnection](
-    #     ([Data.SqlClient.SqlConnectionStringBuilder]@{
-    #         DataSource     = 'UX533-PC'
-    #         InitialCatalog = 'CHG'
-    #         UserID         = 'chg'
-    #         Password       = '1230'
-    #     }).ConnectionString
-    # )
-    
-    $conn = @{
+    # 執行查詢
+    $data = Get-SqlQueryResult -Connection @{
         DataSource     = 'UX533-PC'
         InitialCatalog = 'CHG'
         UserID         = 'chg'
         Password       = '1230'
-    }
-    
-    # $conn = '
-    #     Data Source=UX533-PC;
-    #     Initial Catalog=CHG;
-    #     User ID=chg;
-    #     Password=1230
-    # '
-
-    # 查詢字串
-    $query = "SELECT * FROM [CHG].[CHG].[Table02]"
-    
-    # 執行查詢
-    $data = Get-SqlQueryResult -Connection $conn -Query $query -Verbose -Raw
+    } -Query "SELECT * FROM [CHG].[CHG].[Table02]" -Verbose -Raw
     
     # 輸出到CSV
     $data | ConvertTo-CsvString -DateTimeFormat 'yyyy-MM-dd HH:mm:ss.fff'| Set-Content "tmp\CHG.CHG.Table02.csv" -Encoding utf8BOM
