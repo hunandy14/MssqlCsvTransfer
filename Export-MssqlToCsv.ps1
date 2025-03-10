@@ -55,8 +55,7 @@ function Split-SqlTableName {
             2 { @($null, $parts[0], $parts[1]); break }
             3 { @($parts[0], $parts[1], $parts[2]); break }
             default { 
-                Write-Error "Invalid table name format: $TableName" -ErrorAction $ErrorActionPreference
-                return
+                Write-Error "Invalid table name format: $TableName"; return
             }
         }
 
@@ -74,13 +73,14 @@ function Split-SqlTableName {
 function Get-SqlQueryResult {
     [CmdletBinding()]
     param (
+        # 連接資訊
         [Parameter(Position = 0, Mandatory)]
         [SqlConnectionTransformation()]
         [Data.SqlClient.SqlConnection]$Connection,
-        
+        # 查詢語句
         [Parameter(Position = 1, Mandatory)]
         [string]$Query,
-        
+        # 輸出原始陣列
         [Parameter()]
         [switch]$Raw
     )
@@ -114,7 +114,7 @@ function Get-SqlQueryResult {
         }
     }
     catch {
-        Write-Error $_
+        Write-Error $_; return
     }
     finally {
         # 釋放資源
@@ -135,12 +135,13 @@ function Get-SqlQueryResult {
 function ConvertTo-CsvString {
     [CmdletBinding()]
     param(
+        # 輸入原始陣列
         [Parameter(Position = 0, Mandatory, ValueFromPipeline)]
         [object[]]$RawData,
-        
+        # 處理NULL值
         [Parameter()]
         [string]$NullValue = 'NULL',
-        
+        # 日期時間格式
         [Parameter()]
         [string]$DateTimeFormat = 'yyyy-MM-dd HH:mm:ss'
     )
