@@ -274,7 +274,7 @@ function Export-SqlServerTableToCsv {
         Get-SqlQueryResult -Connection $Connection -Query $query -Raw | 
             ConvertTo-CsvString -NullValue $NullValue -DateTimeFormat $DateTimeFormat | 
             ForEach-Object { $rowCount++; $_ } |
-            Set-Content -Path $Path -Encoding utf8BOM
+            Set-Content -Path $Path -Encoding UTF8
         
         # 返回結果對象
         [PSCustomObject]@{

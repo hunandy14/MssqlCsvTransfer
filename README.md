@@ -6,25 +6,13 @@ MssqlCsvTransfer
 下載CSV檔案
 
 ```ps1
-irm raw.githubusercontent.com/hunandy14/MssqlCsvTransfer/refs/heads/dev/2.0/Export-MssqlToCsv.ps1|iex; {
-  # 連接資訊
-  $serverInstance = "UX533-PC"
-  $database = "CHG"
-  $username = "chg"
-  $password = "1230"
-  
-  # 建立連接字串
-  $connectionString = "Server=$serverInstance;Database=$database;User Id=$username;Password=$password"
-  
-  # 查詢字串
-  $query = "SELECT * FROM [CHG].[CHG].[Table02]"
-  
-  # 執行查詢
-  $data = Get-SqlQueryResult -ConnectionString $connectionString -Query $query -Verbose -Raw
-  
-  # 輸出到CSV
-  $data | ConvertTo-CsvString | Set-Content "tmp\CHG.CHG.Table02.csv"
-}
+irm raw.githubusercontent.com/hunandy14/MssqlCsvTransfer/refs/heads/dev/2.0/Export-MssqlToCsv.ps1|iex
+Export-SqlServerTableToCsv @{
+  DataSource     = 'UX533-PC'
+  InitialCatalog = 'CHG'
+  UserID         = 'chg'
+  Password       = '1230'
+} -TableName "[CHG].[CHG].[Table02]"
 ```
 
 上傳CSV檔案
