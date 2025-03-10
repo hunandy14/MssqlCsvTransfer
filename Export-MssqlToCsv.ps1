@@ -263,23 +263,20 @@ function Export-SqlServerTableToCsv {
         # 構建查詢
         $query = "SELECT * FROM $($parsedTable.FullTableName)"
         
-        # 執行查詢並獲取結果
-        $data = Get-SqlQueryResult -Connection $Connection -Query $query -Raw
+        # 創建一個計數器
+        $rowCount = 0
         
-        # 如果沒有資料，直接返回
-        if (-not $data) {
-            Write-Warning "表格 $($parsedTable.FullTableName) 沒有資料"
-            return
-        }
-        
-        # 轉換為 CSV 並寫入檔案
-        $data | ConvertTo-CsvString -NullValue $NullValue -DateTimeFormat $DateTimeFormat | Set-Content -Path $Path -Encoding utf8BOM
+        # 執行查詢並將結果儲存到CSV檔案，同時計算行數
+        Get-SqlQueryResult -Connection $Connection -Query $query -Raw | 
+            ForEach-Object { $rowCount++; $_ } |
+            ConvertTo-CsvString -NullValue $NullValue -DateTimeFormat $DateTimeFormat | 
+            Set-Content -Path $Path -Encoding utf8BOM
         
         # 返回結果對象
         [PSCustomObject]@{
-            TableName = $parsedTable.FullTableName
+            TableName  = $parsedTable.FullTableName
             OutputFile = $Path
-            RowCount = $data.Count
+            RowCount   = $rowCount
         }
     }
     finally {
