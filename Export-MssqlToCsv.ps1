@@ -242,43 +242,55 @@ function Export-SqlServerTableToCsv {
         [switch]$Force
     )
     
-    # 解析表格名稱
-    $parsedTable = $TableName | Split-SqlTableName
-    if (-not $parsedTable) { return }
+    try {
+        # 解析表格名稱
+        $parsedTable = $TableName | Split-SqlTableName
+        if (-not $parsedTable) { return }
 
-    # 處理路徑
-    $Path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
-    if (-not [IO.Path]::HasExtension($Path)) {
-        $fileName = ($parsedTable.FullTableName -replace '\[|\]' -replace '\.', '_') + '.csv'
-        $Path = Join-Path $Path $fileName
+        # 處理路徑
+        $Path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+        if (-not [IO.Path]::HasExtension($Path)) {
+            $fileName = ($parsedTable.FullTableName -replace '\[|\]' -replace '\.', '_') + '.csv'
+            $Path = Join-Path $Path $fileName
+        }
+        
+        # 檢查檔案是否已存在
+        if ((Test-Path $Path) -and (-not $Force)) {
+            Write-Error "檔案 '$Path' 已存在。使用 -Force 參數來覆蓋檔案。"
+            return
+        }
+        
+        # 構建查詢
+        $query = "SELECT * FROM $($parsedTable.FullTableName)"
+        
+        # 執行查詢並獲取結果
+        $data = Get-SqlQueryResult -Connection $Connection -Query $query -Raw
+        
+        # 如果沒有資料，直接返回
+        if (-not $data) {
+            Write-Warning "表格 $($parsedTable.FullTableName) 沒有資料"
+            return
+        }
+        
+        # 轉換為 CSV 並寫入檔案
+        $data | ConvertTo-CsvString -NullValue $NullValue -DateTimeFormat $DateTimeFormat | Set-Content -Path $Path -Encoding utf8BOM
+        
+        # 返回結果對象
+        [PSCustomObject]@{
+            TableName = $parsedTable.FullTableName
+            OutputFile = $Path
+            RowCount = $data.Count
+        }
     }
-    
-    # 檢查檔案是否已存在
-    if ((Test-Path $Path) -and (-not $Force)) {
-        Write-Error "檔案 '$Path' 已存在。使用 -Force 參數來覆蓋檔案。"
-        return
-    }
-    
-    # 構建查詢
-    $query = "SELECT * FROM $($parsedTable.FullTableName)"
-    
-    # 執行查詢並獲取結果
-    $data = Get-SqlQueryResult -Connection $Connection -Query $query -Raw
-    
-    # 如果沒有資料，直接返回
-    if (-not $data) {
-        Write-Warning "表格 $($parsedTable.FullTableName) 沒有資料"
-        return
-    }
-    
-    # 轉換為 CSV 並寫入檔案
-    $data | ConvertTo-CsvString -NullValue $NullValue -DateTimeFormat $DateTimeFormat | Set-Content -Path $Path -Encoding utf8BOM
-    
-    # 返回結果對象
-    [PSCustomObject]@{
-        TableName = $parsedTable.FullTableName
-        OutputFile = $Path
-        RowCount = $data.Count
+    finally {
+        # 檢查連接是否由當前函式擁有，如果是則關閉並釋放
+        $currentFunctionName = $PSCmdlet.MyInvocation.MyCommand.Name
+        if ($Connection.PSObject.Properties.Name -contains 'CallerName' -and $Connection.CallerName -eq $currentFunctionName) {
+            if ($Connection.State -ne [System.Data.ConnectionState]::Closed) {
+                $Connection.Close()
+            }
+            $Connection.Dispose()
+        }
     }
 }
 
