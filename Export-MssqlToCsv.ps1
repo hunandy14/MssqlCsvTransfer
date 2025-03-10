@@ -119,28 +119,33 @@ function ConvertTo-CsvString {
     }
     
     process {
-        # 格式化並連接所有值
-        ($RawData | ForEach-Object {
-            switch ($_) {
-                # 處理 NULL 值
-                { $null -eq $_ -or $_ -is [System.DBNull] } {
-                    $NullValue
-                    continue
-                }
-                # 處理日期時間
-                { $_ -is [DateTime] } {
-                    $_.ToString($DateTimeFormat)
-                    continue
-                }
-                # 處理字串轉換與引號處理
-                default {
-                    $strValue = $_.ToString()
-                    if ($strValue -match $csvRules.NeedsQuotes) {
-                        $csvRules.QuoteChar + ($strValue -replace $csvRules.QuoteChar, $csvRules.EscapeChar) + $csvRules.QuoteChar
-                    } else { $strValue }
+        # 使用數組方法處理數據，提高性能
+        $values = New-Object string[] $RawData.Length
+        
+        for ($i = 0; $i -lt $RawData.Length; $i++) {
+            $item = $RawData[$i]
+            
+            # 處理 NULL 值
+            if ($null -eq $item -or $item -is [System.DBNull]) {
+                $values[$i] = $NullValue
+            }
+            # 處理日期時間
+            elseif ($item -is [DateTime]) {
+                $values[$i] = $item.ToString($DateTimeFormat)
+            }
+            # 處理字串轉換與引號處理
+            else {
+                $strValue = $item.ToString()
+                if ($strValue -match $csvRules.NeedsQuotes) {
+                    $values[$i] = $csvRules.QuoteChar + ($strValue -replace $csvRules.QuoteChar, $csvRules.EscapeChar) + $csvRules.QuoteChar
+                } else {
+                    $values[$i] = $strValue
                 }
             }
-        }) -join $csvRules.Delimiter
+        }
+        
+        # 使用高效的 .NET Join 方法連接所有值
+        [string]::Join($csvRules.Delimiter, $values)
     }
 }
 
