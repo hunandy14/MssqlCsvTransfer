@@ -215,166 +215,88 @@ function Test-SqlQueryResult {
 
 # 匯出MSSQL表的CSV檔案
 function Export-SqlServerTableToCsv {
-    [CmdletBinding(DefaultParameterSetName = "ConnectionHash")]
+    [CmdletBinding(DefaultParameterSetName = "")]
     param (
-        [Parameter(Position = 0, Mandatory, ParameterSetName = "ConnectionHash")]
-        [hashtable]$ConnectionInfo,
+        # 連接字串
+        [Parameter(Position = 0, Mandatory)]
+        [SqlConnectionTransformation()]
+        [Data.SqlClient.SqlConnection]$Connection,
+        # 表格名稱
+        [Parameter(Position = 1, Mandatory)]
+        [string]$TableName,
         
-        [Parameter(Position = 0, Mandatory, ParameterSetName = "ConnectionString")]
-        [string]$ConnectionString,
-        
-        [Parameter(Position = 1, Mandatory, ValueFromPipeline)]
-        [string[]]$TableName,
-        
+        # 輸出CSV檔案路徑 (預設$NULL會取當前工作目錄)
         [Parameter(Position = 2)]
-        [string]$OutputPath,
-        
+        [string]$Path,
+        # 處理NULL值
         [Parameter()]
         [string]$NullValue = "NULL",
-        
+        # 日期時間格式
         [Parameter()]
         [string]$DateTimeFormat = "yyyy-MM-dd HH:mm:ss",
-        
+        # 不輸出CSV檔案標頭
         [Parameter()]
         [switch]$NoHeaders,
-        
+        # 強制覆蓋CSV檔案
         [Parameter()]
         [switch]$Force
     )
     
-    begin {
-        # 處理連接字串
-        if ($PSCmdlet.ParameterSetName -eq "ConnectionHash") {
-            # 驗證必要的連接資訊
-            if (-not $ConnectionInfo.ContainsKey('Server') -or -not $ConnectionInfo.ContainsKey('Database')) {
-                throw "連接資訊必須包含 'Server' 和 'Database' 鍵值"
-            }
-            
-            # 建立連接字串
-            $connBuilder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder
-            $connBuilder['Data Source'] = $ConnectionInfo['Server']
-            $connBuilder['Initial Catalog'] = $ConnectionInfo['Database']
-            
-            # 設定認證 (SQL 或 Windows 整合認證)
-            if ($ConnectionInfo.ContainsKey('UserId') -and $ConnectionInfo.ContainsKey('Password')) {
-                $connBuilder['User ID'] = $ConnectionInfo['UserId']
-                $connBuilder['Password'] = $ConnectionInfo['Password']
-            } else {
-                $connBuilder['Integrated Security'] = $true
-            }
-            
-            # 設定其他屬性
-            $ConnectionInfo.GetEnumerator() | Where-Object { 
-                $_.Key -notin @('Server', 'Database', 'UserId', 'Password') 
-            } | ForEach-Object {
-                try { $connBuilder[$_.Key] = $_.Value } catch { Write-Verbose "忽略屬性 '$($_.Key)'" }
-            }
-            
-            $ConnectionString = $connBuilder.ToString()
-        }
-        
-        Write-Verbose "連接字串: $ConnectionString"
-        
-        # 如果輸出路徑為空，則使用當前目錄
-        if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-            $OutputPath = (Get-Location).Path
-            Write-Verbose "未指定輸出路徑，使用當前目錄: $OutputPath"
-        }
-        
-        # 確保輸出路徑存在
-        if (-not (Test-Path -Path $OutputPath -PathType Container)) {
-            try {
-                New-Item -Path $OutputPath -ItemType Directory -Force | Out-Null
-                Write-Verbose "已創建輸出目錄: $OutputPath"
-            } catch {
-                throw "無法創建輸出目錄 '$OutputPath': $_"
-            }
-        }
+    # 解析表格名稱
+    $parsedTable = $TableName | Split-SqlTableName
+    if (-not $parsedTable) { return }
+
+    # 處理路徑
+    $Path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+    if (-not [IO.Path]::HasExtension($Path)) {
+        $fileName = ($parsedTable.FullTableName -replace '\[|\]' -replace '\.', '_') + '.csv'
+        $Path = Join-Path $Path $fileName
     }
     
-    process {
-        foreach ($table in $TableName) {
-            try {
-                # 解析表名
-                $parsedTable = $table | Split-SqlTableName
-                Write-Verbose "處理表: $($parsedTable.FullTableName)"
-                
-                # 構建輸出文件名
-                $fileName = if ($parsedTable.DatabaseName) {
-                    "$($parsedTable.DatabaseName).$($parsedTable.SchemaName).$($parsedTable.TableName).csv"
-                } elseif ($parsedTable.SchemaName) {
-                    "$($parsedTable.SchemaName).$($parsedTable.TableName).csv"
-                } else {
-                    "$($parsedTable.TableName).csv"
-                }
-                $outputFile = Join-Path -Path $OutputPath -ChildPath $fileName
-                
-                # 檢查文件是否存在
-                if ((Test-Path -Path $outputFile) -and -not $Force) {
-                    Write-Warning "文件 '$outputFile' 已存在，使用 -Force 參數覆蓋"
-                    continue
-                }
-                
-                # 構建查詢
-                $query = "SELECT * FROM $($parsedTable.FullTableName)"
-                Write-Verbose "執行查詢: $query"
-                
-                # 執行查詢並獲取數據
-                $data = Get-SqlQueryResult -ConnectionString $ConnectionString -Query $query -Raw
-                
-                if (-not $data) {
-                    Write-Warning "表 $($parsedTable.FullTableName) 未返回任何數據"
-                    continue
-                }
-                
-                # 處理標題行
-                if (-not $NoHeaders -and $data.Count -gt 0) {
-                    # 包含標題行
-                    $csvLines = @($data[0] | ConvertTo-CsvString -NullValue $NullValue -DateTimeFormat $DateTimeFormat)
-                    $startIndex = 1
-                } else {
-                    # 不包含標題行
-                    $csvLines = @()
-                    $startIndex = 0
-                }
-                
-                # 處理數據行
-                for ($i = $startIndex; $i -lt $data.Count; $i++) {
-                    $csvLines += $data[$i] | ConvertTo-CsvString -NullValue $NullValue -DateTimeFormat $DateTimeFormat
-                }
-                
-                # 輸出到文件
-                Set-Content -Path $outputFile -Value $csvLines -Encoding UTF8
-                
-                # 計算行數（不包括標題行）
-                $rowCount = $data.Count - $startIndex
-                Write-Verbose "已導出 $rowCount 行數據到 '$outputFile'"
-                
-                # 返回結果對象
-                [PSCustomObject]@{
-                    TableName = $parsedTable.FullTableName
-                    OutputFile = $outputFile
-                    RowCount = $rowCount
-                }
-            }
-            catch {
-                Write-Error "處理表 '$table' 時出錯: $_"
-            }
-        }
+    # 檢查檔案是否已存在
+    if ((Test-Path $Path) -and (-not $Force)) {
+        Write-Error "檔案 '$Path' 已存在。使用 -Force 參數來覆蓋檔案。"
+        return
+    }
+    
+    # 構建查詢
+    $query = "SELECT * FROM $($parsedTable.FullTableName)"
+    
+    # 執行查詢並獲取結果
+    $data = Get-SqlQueryResult -Connection $Connection -Query $query -Raw
+    
+    # 如果沒有資料，直接返回
+    if (-not $data) {
+        Write-Warning "表格 $($parsedTable.FullTableName) 沒有資料"
+        return
+    }
+    
+    # 轉換為 CSV 並寫入檔案
+    $data | ConvertTo-CsvString -NullValue $NullValue -DateTimeFormat $DateTimeFormat | Set-Content -Path $Path -Encoding utf8BOM
+    
+    # 返回結果對象
+    [PSCustomObject]@{
+        TableName = $parsedTable.FullTableName
+        OutputFile = $Path
+        RowCount = $data.Count
     }
 }
 
 # 使用範例
-# $connInfo = @{
-#     Server = "UX533-PC"
-#     Database = "CHG"
-#     UserId = "chg"
-#     Password = "1230"
+# $dateTimeFormat = 'yyyy-MM-dd HH:mm:ss.fff'
+# $cnnInfo = @{
+#     DataSource     = 'UX533-PC'
+#     InitialCatalog = 'CHG'
+#     UserID         = 'chg'
+#     Password       = '1230'
 # }
+# $tableName = "[CHG].[CHG].[Table02]"
 
-# 匯出單一表格
-# Export-SqlServerTableToCsv -ConnectionInfo $connInfo -TableName "[CHG].[CHG].[Table02]" -Force
+# 完整輸出檔名
+# Export-SqlServerTableToCsv $cnnInfo $tableName "tmp\CHG.CHG.Table02.csv" -DateTimeFormat $dateTimeFormat -Force
 
-# 匯出多個表格
-# "[CHG].[CHG].[Table02]", "[CHG].[CHG].[Table01]" | 
-#     Export-SqlServerTableToCsv -ConnectionInfo $connInfo -OutputPath ".\tmp" -NoHeaders -Force
+# 輸入目錄(自動取表名)
+# Export-SqlServerTableToCsv $cnnInfo $tableName "tmp" -DateTimeFormat $dateTimeFormat -Force
+
+# 輸出到當前目錄(自動取表名)
+# Export-SqlServerTableToCsv $cnnInfo $tableName -DateTimeFormat $dateTimeFormat -Force
