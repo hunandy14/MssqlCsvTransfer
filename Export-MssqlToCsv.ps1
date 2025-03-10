@@ -271,15 +271,15 @@ function Export-SqlServerTableToCsv {
         
         # 執行查詢並將結果儲存到CSV檔案，同時計算行數
         Get-SqlQueryResult -Connection $Connection -Query $query -Raw | 
-            # ForEach-Object { $rowCount++; $_ } |
             ConvertTo-CsvString -NullValue $NullValue -DateTimeFormat $DateTimeFormat | 
+            ForEach-Object { $rowCount++; $_ } |
             Set-Content -Path $Path -Encoding utf8BOM
         
         # 返回結果對象
         [PSCustomObject]@{
             TableName  = $parsedTable.FullTableName
             OutputFile = $Path
-            # RowCount   = $rowCount
+            RowCount   = $rowCount
         }
     }
     finally {
