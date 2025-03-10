@@ -26,8 +26,11 @@ class SqlConnectionTransformationAttribute : System.Management.Automation.Argume
             # 處理字串和其他類型
             $connection = [System.Data.SqlClient.SqlConnection]::new($inputData.ToString())
             
-            # 添加標記屬性，表示這是由轉換器創建的
-            $connection | Add-Member -NotePropertyName CreatedByTransformer -NotePropertyValue $true -Force
+            # 獲取調用者的名稱
+            $callerName = $engineIntrinsics.SessionState.PSVariable.GetValue('PSCmdlet').MyInvocation.MyCommand.Name
+            
+            # 添加標記屬性，用於追蹤連接的擁有者
+            $connection | Add-Member -NotePropertyName CallerName -NotePropertyValue $callerName -Force
             
             return $connection
         } catch { throw }
@@ -118,8 +121,9 @@ function Get-SqlQueryResult {
         if ($reader) { $reader.Dispose() }
         if ($cmd) { $cmd.Dispose() }
         
-        # 檢查連接是否由轉換器創建，如果是則關閉並釋放
-        if ($Connection.PSObject.Properties.Name -contains 'CreatedByTransformer' -and $Connection.CreatedByTransformer) {
+        # 檢查連接是否由當前函式擁有，如果是則關閉並釋放
+        $currentFunctionName = $PSCmdlet.MyInvocation.MyCommand.Name
+        if ($Connection.PSObject.Properties.Name -contains 'CallerName' -and $Connection.CallerName -eq $currentFunctionName) {
             if ($Connection.State -ne [System.Data.ConnectionState]::Closed) {
                 $Connection.Close()
             }; $Connection.Dispose()
