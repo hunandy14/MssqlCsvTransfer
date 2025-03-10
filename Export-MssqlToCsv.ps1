@@ -245,7 +245,10 @@ function Export-SqlServerTableToCsv {
     try {
         # 解析表格名稱
         $parsedTable = $TableName | Split-SqlTableName
-        if (-not $parsedTable) { return }
+        if (-not $parsedTable) { 
+            Write-Error "Invalid table name format: $TableName"
+            return
+        }
 
         # 處理路徑
         $Path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
@@ -256,7 +259,7 @@ function Export-SqlServerTableToCsv {
         
         # 檢查檔案是否已存在
         if ((Test-Path $Path) -and (-not $Force)) {
-            Write-Error "檔案 '$Path' 已存在。使用 -Force 參數來覆蓋檔案。"
+            Write-Error "File '$Path' already exists. Use the -Force parameter to overwrite the file."
             return
         }
         
