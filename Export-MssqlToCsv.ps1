@@ -31,21 +31,14 @@ function Split-SqlTableName {
     }
 } # "[CHG].[CHG].[TEST]", "CHG.CHG.TEST2", "CHG.TEST3", "TEST4" | Split-SqlTableName
 
-# 匯出MSSQL表的CSV檔案
-function Export-MssqlToCsv {
-    [CmdletBinding(DefaultParameterSetName = "")]
-    param (
-    )
-}
-
 # 從SQL查詢獲取結果並輸出到管道 (極簡流式處理版本)
 function Get-SqlQueryResult {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory)]
+        [Parameter(Position = 0, Mandatory)]
         [string]$ConnectionString,
         
-        [Parameter(Mandatory)]
+        [Parameter(Position = 1, Mandatory)]
         [string]$Query,
         
         [Parameter()]
@@ -102,23 +95,26 @@ function Get-SqlQueryResult {
 function ConvertTo-CsvString {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory, ValueFromPipeline)]
+        [Parameter(Position = 0, Mandatory, ValueFromPipeline)]
         [object[]]$RawData,
         
         [Parameter()]
         [string]$NullValue = 'NULL',
         
         [Parameter()]
-        [string]$DateTimeFormat = 'yyyy-MM-dd HH:mm:ss.fff'
+        [string]$DateTimeFormat = 'yyyy-MM-dd HH:mm:ss'
     )
     
     begin {
         # CSV 格式化規則
         $csvRules = @{
-            NeedsQuotes = '[,\r\n"]|^\s|\s$'  # 需要引號的模式：包含逗號、換行、引號或前後空白
-            QuoteChar = '"'                    # 引號字元
-            EscapeChar = '""'                  # 引號轉義方式
-            Delimiter = ','                    # CSV 分隔符
+            # 使用兩個正則表達式組合來實現：
+            # 1. 匹配需要引號的基本條件（逗號、換行、引號）
+            # 2. 匹配前後空白，但排除全形空白
+            NeedsQuotes = '[,\r\n"]|^[\t\n\v\f\r ]|[\t\n\v\f\r ]$'
+            QuoteChar = '"'           # 引號字元
+            EscapeChar = '""'         # 引號轉義方式
+            Delimiter = ','           # CSV 分隔符
         }
     }
     
@@ -169,5 +165,12 @@ function Test-SqlQueryResult {
     $data = Get-SqlQueryResult -ConnectionString $connectionString -Query $query -Verbose -Raw
     
     # 輸出到CSV
-    $data | ConvertTo-CsvString | Set-Content "tmp\CHG.CHG.Table02.csv"
+    $data | ConvertTo-CsvString -DateTimeFormat 'yyyy-MM-dd HH:mm:ss.fff'| Set-Content "tmp\CHG.CHG.Table02.csv"
 } # Test-SqlQueryResult
+
+# 匯出MSSQL表的CSV檔案
+function Export-MssqlToCsv {
+    [CmdletBinding(DefaultParameterSetName = "")]
+    param (
+    )
+}
